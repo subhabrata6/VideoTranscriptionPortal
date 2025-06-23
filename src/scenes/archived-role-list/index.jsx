@@ -1,0 +1,275 @@
+import React, { useEffect, useState } from "react";
+import {
+  Box,
+  Typography,
+  Paper,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+  Button,
+  TextField,
+} from "@mui/material";
+import RestoreIcon from "@mui/icons-material/Restore";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { DataGrid } from "@mui/x-data-grid";
+import { tokens } from "../../theme";
+import { useTheme } from "@mui/material/styles";
+import { useNavigate } from "react-router-dom";
+import Header from "../../components/Header";
+import EnumDisplay from "../../data/Helpers/EnumHelper";
+import Api from "../../data/Services/Interceptor";
+import { ToastContainer } from "react-toastify";
+import * as messageHelper from "../../data/Helpers/MessageHelper";
+import dayjs from "dayjs";
+import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
+
+const DeletedRolesList = () => {
+  const theme = useTheme();
+  const colors = tokens(theme.palette.mode);
+  const navigate = useNavigate();
+
+  const [deletedRoles, setDeletedRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sortColumn, setSortColumn] = useState("Name");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [page, setPage] = useState(0); // zero-indexed for MUI
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const GENERIC_ID = "00000000-0000-0000-0000-000000000000";
+
+  const fetchDeletedRoles = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        companyId: GENERIC_ID,
+        PageNumber: page + 1,
+        PageSize: pageSize,
+        SortBy: sortColumn,
+        SortOrder: sortDirection.toUpperCase(),
+        Search: search,
+        additionalProp1: "string",
+        additionalProp2: "string",
+        additionalProp3: "string",
+      };
+
+      const response = await Api.get(ApiEndpoints.ROLE + "?archived=true", {
+        params,
+      });
+      if (response.statusCode === 200) {
+        const enrichedRoles = response.data.items.map((role) => {
+          const isGeneric =
+            role.companyId === GENERIC_ID ||
+            role.companyName === "Generic Role";
+
+          return {
+            ...role,
+            roleType: isGeneric ? "GENERIC" : "COMPANY_SPECIFIC",
+            companyName: isGeneric ? "" : role.companyName,
+          };
+        });
+        setDeletedRoles(enrichedRoles);
+        setTotalCount(response.data.totalCount);
+      }
+    } catch (error) {
+      console.error("Error fetching deleted Roles:", error);
+      messageHelper.showErrorToast("Failed to load deleted Roles.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async (id) => {
+    try {
+      const response = await Api.post(ApiEndpoints.ROLE + `/${id}/restore`);
+      if (response.statusCode === 200) {
+        messageHelper.showSuccessToast("Role restored successfully.");
+        fetchDeletedRoles();
+      } else {
+        messageHelper.showErrorToast("Failed to restore Role.");
+      }
+    } catch (error) {
+      console.error("Error restoring Role:", error);
+      messageHelper.showErrorToast("Restore failed: " + error.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    messageHelper.showConfirmationToast(
+      "Are you sure you want to permanently delete this role?",
+      async () => {
+        try {
+          const response = await Api.delete(ApiEndpoints.ROLE + `/${id}`);
+          if (response.statusCode === 200) {
+            messageHelper.showSuccessToast("Role deleted permanently.");
+            fetchDeletedRoles();
+          } else {
+            messageHelper.showErrorToast("Failed to delete role.");
+          }
+        } catch (error) {
+          console.error("Error deleting role:", error);
+          messageHelper.showErrorToast("Delete failed: " + error.message);
+        }
+      }
+    );
+  };
+
+  useEffect(() => {
+    fetchDeletedRoles();
+  }, [page, pageSize, sortColumn, sortDirection, search]);
+
+  const filteredData = deletedRoles.filter((role) =>
+    role.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const columns = [
+    { field: "id", headerName: "ID", flex: 0.5, hide: true },
+    {
+      field: "displayName",
+      headerName: "Role Name",
+      flex: 1.5,
+      renderCell: ({ row }) => (
+        <Typography fontWeight={500}>{row.displayName}</Typography>
+      ),
+    },
+    {
+      field: "roleType",
+      headerName: "Role Type",
+      flex: 1,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <EnumDisplay type="RoleType" value={row.roleType} />
+      ),
+    },
+    {
+      field: "companyName",
+      headerName: "Company Name",
+      flex: 1.5,
+      renderCell: ({ row }) => (
+        <Typography fontWeight={500}>{row.companyName}</Typography>
+      ),
+    },
+    {
+      field: "deletedAt",
+      headerName: "Deleted On",
+      flex: 1,
+      valueFormatter: (params) => new Date(params.value).toLocaleDateString(),
+    },
+    {
+      field: "actions",
+      headerName: "Actions",
+      flex: 0.8,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <Box display="flex" gap={1} justifyContent="center">
+          <Tooltip title="Restore">
+            <IconButton
+              color="primary"
+              size="medium"
+              onClick={() => handleRestore(row.id)}
+            >
+              <RestoreIcon fontSize="large" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Permanently">
+            <IconButton
+              sx={{ color: "error.main" }}
+              size="medium"
+              onClick={() => {
+                handleDelete(row.id);
+              }}
+            >
+              <DeleteIcon fontSize="large" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ];
+
+  return (
+    <Box sx={{ minHeight: "100vh", background: colors.primary[400], p: 4 }}>
+      <Header title="Archived Roles" subtitle="List of Archived Roles" />
+
+      {/* Search Bar */}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+      >
+        <TextField
+          variant="outlined"
+          label="Search"
+          placeholder="Search by Role Name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ width: "400px" }}
+        />
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={() => navigate("/role-list")}
+        >
+          Back to Role List
+        </Button>
+      </Box>
+
+      {/* Data Table */}
+      <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
+        {loading ? (
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            height="50vh"
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DataGrid
+            autoHeight
+            rows={filteredData}
+            columns={columns}
+            getRowId={(row) => row.id}
+            pageSize={pageSize}
+            onPageChange={(newPage) => setPage(newPage)}
+            onPageSizeChange={(newPageSize) => {
+              setPageSize(newPageSize);
+              setPage(0); // Reset to first page on page size change
+            }}
+            paginationMode="server"
+            sortingMode="server"
+            sortModel={[{ field: sortColumn, sort: sortDirection }]}
+            onSortModelChange={(model) => {
+              if (model.length > 0) {
+                setSortColumn(model[0].field);
+                setSortDirection(model[0].sort);
+              } else {
+                setSortColumn("Name");
+                setSortDirection("asc");
+              }
+            }}
+            rowCount={totalCount}
+            pagination
+            rowsPerPageOptions={[10, 25, 50]}
+            sx={{
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: "primary.light",
+                fontWeight: "bold",
+              },
+              "& .MuiDataGrid-row:hover": {
+                backgroundColor: "action.hover",
+              },
+            }}
+          />
+        )}
+      </Paper>
+      <ToastContainer />
+    </Box>
+  );
+};
+
+export default DeletedRolesList;

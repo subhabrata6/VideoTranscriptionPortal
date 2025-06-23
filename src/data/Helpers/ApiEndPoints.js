@@ -1,0 +1,16 @@
+export const ApiEndpoints = Object.freeze({
+  ACTIONS: "/Actions",
+  AUTH: "/Auth",
+  CLIENTS: "/Clients",
+  COMPANIES: "/Companies",
+  DEPARTMENTS: "/Departments",
+  MODULE: "/Module",
+  MODULE_ACTIONS: "/ModuleActions",
+  PROJECT_FILES: "/ProjectFiles",
+  PROJECTS: "/Projects",
+  RESOURCE: "/Resource",
+  RESOURCE_PERMISSION: "/ResourcePermission",
+  ROLE: "/Role",
+  ROLE_PERMISSIONS: "/RolePermissions",
+  USERS: "/Users",
+});
