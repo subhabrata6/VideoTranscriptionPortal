@@ -1,15 +1,13 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Box,
   Typography,
   Paper,
-  CircularProgress,
   IconButton,
   Tooltip,
   useTheme,
   Button,
   TextField,
-  MenuItem,
 } from "@mui/material";
 import { tokens } from "../../theme";
 import { DataGrid } from "@mui/x-data-grid";
@@ -19,34 +17,46 @@ import * as messageHelper from "../../data/Helpers/MessageHelper";
 import { ToastContainer } from "react-toastify";
 import EditIcon from "@mui/icons-material/Edit";
 import ArchiveIcon from "@mui/icons-material/Archive";
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNavigate } from "react-router-dom";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
+import GlobalLoader from "../global/Loader";
 
 const CompanyList = () => {
   const [companies, setCompanies] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
-  const [sortColumn, setSortColumn] = useState("name");
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortColumn, setSortColumn] = useState("createdAt");
+  const [sortDirection, setSortDirection] = useState("desc");
 
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
 
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (search.length === 0 || search.length >= 3) {
+        setDebouncedSearch(search);
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [search]);
+
   const fetchCompanies = async () => {
+    setLoading(true);
     try {
       const params = {
-        PageNumber: page + 1, // API is 1-indexed
+        PageNumber: page + 1,
         PageSize: pageSize,
         SortBy: sortColumn,
-        SortOrder: sortDirection?.toUpperCase() || "ASC",
-        Search: search,
-        additionalProp1: "string",
-        additionalProp2: "string",
-        additionalProp3: "string",
+        SortOrder: sortDirection?.toUpperCase() || "DESC",
+        Search: debouncedSearch,
       };
       const response = await Api.get(ApiEndpoints.COMPANIES, { params });
       if (response.statusCode === 200) {
@@ -55,12 +65,9 @@ const CompanyList = () => {
       }
     } catch (error) {
       console.error("Error fetching companies:", error);
-      messageHelper.showErrorToast(
-        "Failed to load company data: " + error.message,
-        {
-          autoClose: false,
-        }
-      );
+      messageHelper.showErrorToast("Failed to load company data: " + error.message, {
+        autoClose: false,
+      });
     } finally {
       setLoading(false);
     }
@@ -68,7 +75,37 @@ const CompanyList = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, [page, pageSize, search, sortColumn, sortDirection]);
+  }, [page, pageSize, debouncedSearch, sortColumn, sortDirection]);
+
+  const handleEdit = (id) => {
+    navigate(`/create-company/${id}`);
+  };
+
+  const handleDelete = async (id) => {
+    messageHelper.showConfirmationToast(
+      "Are you sure you want to archive this company?",
+      {
+        onConfirm: async () => {
+          try {
+            const response = await Api.delete(ApiEndpoints.COMPANIES + `/${id}`);
+            if (response.statusCode === 200) {
+              messageHelper.showSuccessToast("Company archived successfully.");
+              fetchCompanies();
+            } else {
+              messageHelper.showErrorToast("Failed to archive company: " + response.message, {
+                autoClose: false,
+              });
+            }
+          } catch (error) {
+            console.error("Error archiving company:", error);
+            messageHelper.showErrorToast("Failed to archive company: " + error.message, {
+              autoClose: false,
+            });
+          }
+        },
+      }
+    );
+  };
 
   const columns = [
     { field: "id", headerName: "ID", flex: 0.5, hide: true },
@@ -80,21 +117,14 @@ const CompanyList = () => {
         <Typography fontWeight={500}>{row.name}</Typography>
       ),
     },
-    {
-      field: "contactName",
-      headerName: "Contact Person",
-      flex: 1,
-    },
-    {
-      field: "contactEmail",
-      headerName: "Email",
-      flex: 1.5,
-    },
+    { field: "contactName", headerName: "Contact Person", flex: 1 },
+    { field: "contactEmail", headerName: "Email", flex: 1.5 },
     {
       field: "createdAt",
       headerName: "Created On",
       flex: 1,
-      valueFormatter: (params) => new Date(params.value).toLocaleDateString(),
+      valueFormatter: (params) =>
+        new Date(params.value).toLocaleDateString(),
     },
     {
       field: "actions",
@@ -127,45 +157,9 @@ const CompanyList = () => {
     },
   ];
 
-  const handleDelete = async (id) => {
-    messageHelper.showConfirmationToast(
-      "Are you sure you want to archive this company?",
-      {
-        onConfirm: async () => {
-          console.log("Confirm clicked!"); // <-- Add this line
-          try {
-            const response = await Api.delete(
-              ApiEndpoints.COMPANIES + `/${id}`
-            );
-            if (response.statusCode === 200) {
-              messageHelper.showSuccessToast("Company archived successfully.");
-              fetchCompanies();
-            } else {
-              messageHelper.showErrorToast(
-                "Failed to archive company: " + response.message,
-                { autoClose: false }
-              );
-            }
-          } catch (error) {
-            console.error("Error archiving company:", error);
-            messageHelper.showErrorToast(
-              "Failed to archive company: " + error.message,
-              { autoClose: false }
-            );
-          }
-        },
-      }
-    );
-  };
-
-  const handleEdit = (id) => {
-    navigate(`/create-company/${id}`);
-  };
   return (
     <Box sx={{ minHeight: "100vh", background: colors.primary[400], p: 4 }}>
       <Header title="COMPANY LIST" subtitle="List of All Companies" />
-
-      {/* Filters */}
       <Box
         display="flex"
         justifyContent="space-between"
@@ -180,38 +174,54 @@ const CompanyList = () => {
           placeholder="Search by Company Name, Contact Name, or Email"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: "400px" }} // Set your desired width here
+          sx={{ width: "400px" }}
         />
 
-        <Box ml="auto" display="flex" gap={2}>
+        <Box ml="auto" display="flex" gap={2} alignItems="center">
           <Button
             variant="contained"
-            color="secondary"
-            onClick={() => navigate("/create-company")}
+            color="primary"
+            startIcon={
+              <RefreshIcon
+                sx={{
+                  color:
+                    theme.palette.mode === "dark"
+                      ? "#FFEB3B"
+                      : "#FBC02D",
+                }}
+                fontSize="large"
+              />
+            }
+            onClick={fetchCompanies}
+            sx={{
+              textTransform: "none",
+              fontWeight: 500,
+              backgroundColor:
+                theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[500],
+              "&:hover": {
+                backgroundColor:
+                  theme.palette.mode === "dark"
+                    ? colors.primary[700]
+                    : colors.primary[600],
+              },
+            }}
           >
+            Refresh List
+          </Button>
+          <Button variant="contained" color="secondary" onClick={() => navigate("/create-company")}>
             Add New Company
           </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={() => navigate("/archived-companies")}
-          >
+          <Button variant="contained" color="secondary" onClick={() => navigate("/archived-companies")}>
             Archived Companies
           </Button>
         </Box>
       </Box>
 
-      {/* Data Table */}
       <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
         {loading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            height="50vh"
-          >
-            <CircularProgress />
-          </Box>
+          <GlobalLoader />
         ) : (
           <DataGrid
             autoHeight
@@ -228,10 +238,10 @@ const CompanyList = () => {
             onSortModelChange={(sortModel) => {
               if (sortModel.length > 0) {
                 setSortColumn(sortModel[0].field);
-                setSortDirection(sortModel[0].sort || "asc");
+                setSortDirection(sortModel[0].sort || "desc");
               } else {
-                setSortColumn("name");
-                setSortDirection("asc");
+                setSortColumn("createdAt");
+                setSortDirection("desc");
               }
             }}
             rowsPerPageOptions={[10, 25, 50]}

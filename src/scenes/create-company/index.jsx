@@ -14,7 +14,10 @@ import { tokens } from "../../theme";
 import { Formik } from "formik";
 import * as yup from "yup";
 import * as messageHelper from "../../data/Helpers/MessageHelper";
+import HomeIcon from '@mui/icons-material/Home';
 import BusinessIcon from "@mui/icons-material/Business";
+import LanguageIcon from '@mui/icons-material/Language';
+import PhoneIcon from '@mui/icons-material/Phone';
 import PersonIcon from "@mui/icons-material/Person";
 import EmailIcon from "@mui/icons-material/Email";
 import { toast, ToastContainer } from "react-toastify";
@@ -48,9 +51,9 @@ const CreateCompany = () => {
     name: values.name.trim(),
     contactName: values.contactName.trim(),
     contactEmail: values.contactEmail.trim(),
-    companyPhoneNo: values.companyPhoneNo.replace(/\s+/g, ""),
+    companyPhoneNo: values.companyPhoneNo,
     companyAddress: values.companyAddress.trim(),
-    companyWebsite: values.companyWebsite.replace(/\s+/g, ""),
+    companyWebsite: values.companyWebsite,
   };
 
   try {
@@ -58,7 +61,7 @@ const CreateCompany = () => {
       const response = await Api.put(ApiEndpoints.COMPANIES + `/${companyId}`, payload);
       if (response.success && response.statusCode === 200) {
         messageHelper.showSuccessToast("Company updated successfully!");
-        resetForm();
+        //resetForm();
         setTimeout(() => {
           navigate("/company-list");
         }, 3000);
@@ -151,7 +154,7 @@ const CreateCompany = () => {
                 gap="30px"
                 gridTemplateColumns="repeat(4, minmax(0, 1fr))"
                 sx={{
-                  "& > div": { gridColumn: isNonMobile ? undefined : "span 4" },
+                  "& > div": { gridColumn: isNonMobile ? undefined : "span 6" },
                 }}
               >
                 <TextField
@@ -198,7 +201,7 @@ const CreateCompany = () => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <BusinessIcon color="primary" />
+                        <HomeIcon color="primary" />
                       </InputAdornment>
                     ),
                   }}
@@ -223,7 +226,7 @@ const CreateCompany = () => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <BusinessIcon color="primary" />
+                        <LanguageIcon color="primary" />
                       </InputAdornment>
                     ),
                   }}
@@ -248,7 +251,7 @@ const CreateCompany = () => {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <BusinessIcon color="primary" />
+                        <PhoneIcon color="primary" />
                       </InputAdornment>
                     ),
                   }}

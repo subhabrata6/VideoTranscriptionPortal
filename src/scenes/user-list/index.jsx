@@ -16,8 +16,8 @@ import { DataGrid } from "@mui/x-data-grid";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import EditIcon from "@mui/icons-material/Edit";
 import Header from "../../components/Header";
 import Api from "../../data/Services/Interceptor";
@@ -25,7 +25,7 @@ import * as messageHelper from "../../data/Helpers/MessageHelper";
 import { ToastContainer } from "react-toastify";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
 
-const Team = () => {
+const UserList = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -103,22 +103,33 @@ const Team = () => {
   };
 
   const handleDelete = async (id) => {
-    messageHelper.showConfirmationToast("Are you sure you want to make this member inactive?", {
-      onConfirm: async () => {
-        try {
-          const response = await Api.delete(ApiEndpoints.USERS + `/${id}`);
-          if (response.statusCode === 200) {
-            messageHelper.showSuccessToast("Member made inactive successfully.");
-            fetchUsers();
-          } else {
-            messageHelper.showErrorToast("Failed to make member inactive: " + response.message, { autoClose: false });
+    messageHelper.showConfirmationToast(
+      "Are you sure you want to make this member inactive?",
+      {
+        onConfirm: async () => {
+          try {
+            const response = await Api.delete(ApiEndpoints.USERS + `/${id}`);
+            if (response.statusCode === 200) {
+              messageHelper.showSuccessToast(
+                "Member made inactive successfully."
+              );
+              fetchUsers();
+            } else {
+              messageHelper.showErrorToast(
+                "Failed to make member inactive: " + response.message,
+                { autoClose: false }
+              );
+            }
+          } catch (error) {
+            console.error("Error making member inactive:", error);
+            messageHelper.showErrorToast(
+              "Failed to make member inactive: " + error.message,
+              { autoClose: false }
+            );
           }
-        } catch (error) {
-          console.error("Error making member inactive:", error);
-          messageHelper.showErrorToast("Failed to make member inactive: " + error.message, { autoClose: false });
-        }
+        },
       }
-    });
+    );
   };
 
   const columns = [
@@ -163,34 +174,34 @@ const Team = () => {
       ),
     },
     {
-          field: "actions",
-          headerName: "Actions",
-          flex: 0.8,
-          sortable: false,
-          filterable: false,
-          renderCell: ({ row }) => (
-            <Box display="flex" gap={1}>
-              <Tooltip title="Edit">
-                <IconButton
-                  color="primary"
-                  size="small"
-                  onClick={() => handleEdit(row.id)}
-                >
-                  <EditIcon fontSize="inherit" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Inactive">
-                <IconButton
-                  color="error"
-                  size="small"
-                  onClick={() => handleDelete(row.id)}
-                >
-                  <CancelIcon fontSize="inherit" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          ),
-        },
+      field: "actions",
+      headerName: "Actions",
+      flex: 0.8,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <Box display="flex" gap={1}>
+          <Tooltip title="Edit">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handleEdit(row.id)}
+            >
+              <EditIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Inactive">
+            <IconButton
+              color="error"
+              size="small"
+              onClick={() => handleDelete(row.id)}
+            >
+              <CancelIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
   ];
 
   return (
@@ -198,27 +209,27 @@ const Team = () => {
       <Header title="TEAM" subtitle="Managing the Team Members" />
 
       {/* Search */}
-      
-        <Box
-          mb={2}
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <TextField
-            variant="outlined"
-            label="Search"
-            placeholder="Search by name, email, etc."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: 400 }}
-          />
-        
+
+      <Box
+        mb={2}
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+      >
+        <TextField
+          variant="outlined"
+          label="Search"
+          placeholder="Search by name, email, etc."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ width: 400 }}
+        />
+
         <Box ml="auto" display="flex" gap={2}>
           <Button
             variant="contained"
             color="secondary"
-            onClick={() => navigate("/form")}
+            onClick={() => navigate("/create-user")}
           >
             Add New Member
           </Button>
@@ -227,10 +238,10 @@ const Team = () => {
             color="secondary"
             onClick={() => navigate("/archived-users")}
           >
-            Inactive Members
+            Trash Members
           </Button>
         </Box>
-        </Box>
+      </Box>
 
       {/* Table */}
       <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
@@ -285,4 +296,4 @@ const Team = () => {
   );
 };
 
-export default Team;
+export default UserList;

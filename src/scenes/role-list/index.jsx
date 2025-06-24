@@ -1,19 +1,18 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
   Paper,
-  CircularProgress,
   IconButton,
   Tooltip,
   useTheme,
   Button,
   TextField,
-  MenuItem,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
 import ArchiveIcon from "@mui/icons-material/Archive";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import EnumDisplay from "../../data/Helpers/EnumHelper";
@@ -26,10 +25,9 @@ import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
 
 const RoleList = () => {
   const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [sortColumn, setSortColumn] = useState("Name");
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortColumn, setSortColumn] = useState("createdAt");
+  const [sortDirection, setSortDirection] = useState("desc");
   const [page, setPage] = useState(0); // zero-indexed for MUI
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -39,8 +37,9 @@ const RoleList = () => {
   const navigate = useNavigate();
   const GENERIC_ID = "00000000-0000-0000-0000-000000000000";
 
+  // Removed loading state
+
   const fetchRoles = async () => {
-    setLoading(true);
     try {
       const params = {
         companyId: GENERIC_ID,
@@ -73,8 +72,6 @@ const RoleList = () => {
       }
     } catch (error) {
       messageHelper.showErrorToast("Error fetching roles: " + error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -195,6 +192,35 @@ const RoleList = () => {
         <Box ml="auto" display="flex" gap={2}>
           <Button
             variant="contained"
+            color="primary"
+            startIcon={
+              <RefreshIcon
+                sx={{
+                  color: theme.palette.mode === "dark" ? "#FFEB3B" : "#FBC02D",
+                }}
+                fontSize="large"
+              />
+            }
+            onClick={fetchRoles}
+            sx={{
+              textTransform: "none",
+              fontWeight: 500,
+              backgroundColor:
+                theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[500],
+              "&:hover": {
+                backgroundColor:
+                  theme.palette.mode === "dark"
+                    ? colors.primary[700]
+                    : colors.primary[600],
+              },
+            }}
+          >
+            Refresh List
+          </Button>
+          <Button
+            variant="contained"
             color="secondary"
             onClick={() => navigate("/create-role")}
           >
@@ -212,55 +238,44 @@ const RoleList = () => {
 
       {/* Data Table */}
       <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
-        {loading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            height="50vh"
-          >
-            <CircularProgress />
-          </Box>
-        ) : (
-          <DataGrid
-            autoHeight
-            rows={roles}
-            columns={columns}
-            pageSize={pageSize}
-            rowsPerPageOptions={[10, 25, 50]}
-            rowCount={totalCount}
-            pagination
-            paginationMode="server"
-            sortingMode="server"
-            onSortModelChange={(sortModel) => {
-              if (sortModel.length > 0) {
-                setSortColumn(sortModel[0].field);
-                setSortDirection(sortModel[0].sort || "asc");
-              } else {
-                setSortColumn("name");
-                setSortDirection("asc");
-              }
-            }}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize);
-              setPage(0); // Reset to first page
-            }}
-            getRowId={(row) => row.id}
-            sx={{
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "primary.light",
-                fontWeight: "bold",
-              },
-              "& .MuiDataGrid-row:hover": {
-                backgroundColor: "action.hover",
-              },
-              "& .MuiCheckbox-root": {
-                color: "primary.main",
-              },
-            }}
-          />
-        )}
+        <DataGrid
+          autoHeight
+          rows={roles}
+          columns={columns}
+          pageSize={pageSize}
+          rowsPerPageOptions={[10, 25, 50]}
+          rowCount={totalCount}
+          pagination
+          paginationMode="server"
+          sortingMode="server"
+          onSortModelChange={(sortModel) => {
+            if (sortModel.length > 0) {
+              setSortColumn(sortModel[0].field);
+              setSortDirection(sortModel[0].sort || "desc");
+            } else {
+              setSortColumn("createdAt");
+              setSortDirection("desc");
+            }
+          }}
+          onPageChange={(newPage) => setPage(newPage)}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(0); // Reset to first page
+          }}
+          getRowId={(row) => row.id}
+          sx={{
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: "primary.light",
+              fontWeight: "bold",
+            },
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "action.hover",
+            },
+            "& .MuiCheckbox-root": {
+              color: "primary.main",
+            },
+          }}
+        />
       </Paper>
       <ToastContainer />
     </Box>

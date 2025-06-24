@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import RestoreIcon from "@mui/icons-material/Restore";
 import DeleteIcon from "@mui/icons-material/Delete";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import { DataGrid } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
 import { useTheme } from "@mui/material/styles";
@@ -29,10 +30,10 @@ const DeletedRolesList = () => {
   const navigate = useNavigate();
 
   const [deletedRoles, setDeletedRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Removed: const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [sortColumn, setSortColumn] = useState("Name");
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortColumn, setSortColumn] = useState("deletedAt");
+  const [sortDirection, setSortDirection] = useState("desc");
   const [page, setPage] = useState(0); // zero-indexed for MUI
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -40,7 +41,7 @@ const DeletedRolesList = () => {
   const GENERIC_ID = "00000000-0000-0000-0000-000000000000";
 
   const fetchDeletedRoles = async () => {
-    setLoading(true);
+    // Removed: setLoading(true);
     try {
       const params = {
         companyId: GENERIC_ID,
@@ -75,24 +76,35 @@ const DeletedRolesList = () => {
     } catch (error) {
       console.error("Error fetching deleted Roles:", error);
       messageHelper.showErrorToast("Failed to load deleted Roles.");
-    } finally {
-      setLoading(false);
     }
+    // Removed: finally { setLoading(false); }
   };
 
   const handleRestore = async (id) => {
-    try {
-      const response = await Api.post(ApiEndpoints.ROLE + `/${id}/restore`);
-      if (response.statusCode === 200) {
-        messageHelper.showSuccessToast("Role restored successfully.");
-        fetchDeletedRoles();
-      } else {
-        messageHelper.showErrorToast("Failed to restore Role.");
+    messageHelper.showConfirmationToast(
+      "Are you sure you want to restore this role?",
+      {
+        onConfirm: async () => {
+          //console.log("Confirm clicked!");
+          try {
+            const response = await Api.post(
+              ApiEndpoints.ROLE + `/${id}/unarchive`
+            );
+            if (response.statusCode === 200) {
+              messageHelper.showSuccessToast("Role restored successfully.");
+              setTimeout(() => {
+                fetchDeletedRoles();
+              }, 3000);
+            } else {
+              messageHelper.showErrorToast("Failed to restore Role.");
+            }
+          } catch (error) {
+            console.error("Error restoring Role:", error);
+            messageHelper.showErrorToast("Restore failed: " + error.message);
+          }
+        },
       }
-    } catch (error) {
-      console.error("Error restoring Role:", error);
-      messageHelper.showErrorToast("Restore failed: " + error.message);
-    }
+    );
   };
 
   const handleDelete = async (id) => {
@@ -119,9 +131,6 @@ const DeletedRolesList = () => {
     fetchDeletedRoles();
   }, [page, pageSize, sortColumn, sortDirection, search]);
 
-  const filteredData = deletedRoles.filter((role) =>
-    role.name.toLowerCase().includes(search.toLowerCase())
-  );
 
   const columns = [
     { field: "id", headerName: "ID", flex: 0.5, hide: true },
@@ -178,7 +187,7 @@ const DeletedRolesList = () => {
               sx={{ color: "error.main" }}
               size="medium"
               onClick={() => {
-                handleDelete(row.id);
+                //handleDelete(row.id);   -> To be implemented after discussion with the team
               }}
             >
               <DeleteIcon fontSize="large" />
@@ -208,64 +217,87 @@ const DeletedRolesList = () => {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: "400px" }}
         />
-        <Button
-          variant="contained"
-          color="secondary"
-          onClick={() => navigate("/role-list")}
-        >
-          Back to Role List
-        </Button>
+        <Box ml="auto" display="flex" gap={2} alignItems="center">
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={
+              <RefreshIcon
+                sx={{
+                  color: theme.palette.mode === "dark" ? "#FFEB3B" : "#FBC02D",
+                }}
+                fontSize="large"
+              />
+            }
+            onClick={fetchDeletedRoles}
+            sx={{
+              textTransform: "none",
+              fontWeight: 500,
+              backgroundColor:
+                theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[500],
+              "&:hover": {
+                backgroundColor:
+                  theme.palette.mode === "dark"
+                    ? colors.primary[700]
+                    : colors.primary[600],
+              },
+            }}
+          >
+            Refresh List
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={() => navigate("/role-list")}
+          >
+            Back to Role List
+          </Button>
+        </Box>
       </Box>
 
       {/* Data Table */}
       <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
-        {loading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            height="50vh"
-          >
-            <CircularProgress />
-          </Box>
-        ) : (
-          <DataGrid
-            autoHeight
-            rows={filteredData}
-            columns={columns}
-            getRowId={(row) => row.id}
-            pageSize={pageSize}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newPageSize) => {
-              setPageSize(newPageSize);
-              setPage(0); // Reset to first page on page size change
-            }}
-            paginationMode="server"
-            sortingMode="server"
-            sortModel={[{ field: sortColumn, sort: sortDirection }]}
-            onSortModelChange={(model) => {
-              if (model.length > 0) {
-                setSortColumn(model[0].field);
-                setSortDirection(model[0].sort);
-              } else {
-                setSortColumn("Name");
-                setSortDirection("asc");
-              }
-            }}
-            rowCount={totalCount}
-            pagination
-            rowsPerPageOptions={[10, 25, 50]}
-            sx={{
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "primary.light",
-                fontWeight: "bold",
-              },
-              "& .MuiDataGrid-row:hover": {
-                backgroundColor: "action.hover",
-              },
-            }}
-          />
-        )}
+        {/* Removed loading spinner and conditional rendering */}
+        <DataGrid
+          autoHeight
+          rows={deletedRoles}
+          columns={columns}
+          getRowId={(row) => row.id}
+          pageSize={pageSize}
+          onPageChange={(newPage) => setPage(newPage)}
+          onPageSizeChange={(newPageSize) => {
+            setPageSize(newPageSize);
+            setPage(0); // Reset to first page on page size change
+          }}
+          paginationMode="server"
+          sortingMode="server"
+          sortModel={[{ field: sortColumn, sort: sortDirection }]}
+          onSortModelChange={(model) => {
+            if (model.length > 0) {
+              setSortColumn(model[0].field);
+              setSortDirection(model[0].sort || "desc");
+            } else {
+              setSortColumn("deletedAt");
+              setSortDirection("desc");
+            }
+          }}
+          checkboxSelection
+          disableSelectionOnClick
+          rowCount={totalCount}
+          pagination
+          rowsPerPageOptions={[10, 25, 50]}
+          sx={{
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: "primary.light",
+              fontWeight: "bold",
+            },
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "action.hover",
+            },
+          }}
+        />
       </Paper>
       <ToastContainer />
     </Box>

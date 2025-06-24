@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import RestoreIcon from "@mui/icons-material/Restore";
 import DeleteIcon from "@mui/icons-material/Delete";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import { DataGrid } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
 import { useTheme } from "@mui/material/styles";
@@ -23,25 +24,50 @@ import dayjs from "dayjs";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
 
 const DeletedCompaniesList = () => {
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortColumn, setSortColumn] = useState("createdAt");
+  const [sortDirection, setSortDirection] = useState("desc");
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
 
   const [deletedCompanies, setDeletedCompanies] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (search.length === 0 || search.length >= 3) {
+        setDebouncedSearch(search);
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const fetchDeletedCompanies = async () => {
     try {
-      const response = await Api.get(ApiEndpoints.COMPANIES + "?archived=true");
+      const params = {
+        PageNumber: page + 1,
+        PageSize: pageSize,
+        SortBy: sortColumn,
+        SortOrder: sortDirection?.toUpperCase() || "DESC",
+        Search: debouncedSearch,
+      };
+      const response = await Api.get(
+        ApiEndpoints.COMPANIES + "?archived=true",
+        { params }
+      );
       if (response.statusCode === 200) {
         setDeletedCompanies(response.data.items);
+        setTotalCount(response.data.totalCount);
       }
     } catch (error) {
       console.error("Error fetching deleted companies:", error);
       messageHelper.showErrorToast("Failed to load deleted companies.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -78,8 +104,9 @@ const DeletedCompaniesList = () => {
         onConfirm: async () => {
           //console.log("Confirm clicked!");
           try {
-
-            messageHelper.showInfoToast("To be implemented after discussion with the team.");
+            messageHelper.showInfoToast(
+              "To be implemented after discussion with the team."
+            );
             // Uncomment the following lines after discussion with the team
 
             // const response = await Api.delete(ApiEndpoints.COMPANIES + `/${id}`);
@@ -102,19 +129,24 @@ const DeletedCompaniesList = () => {
 
   useEffect(() => {
     fetchDeletedCompanies();
-  }, []);
-
-  const filteredData = deletedCompanies.filter((company) =>
-    company.name.toLowerCase().includes(search.toLowerCase())
-  );
+  }, [page, pageSize, debouncedSearch, sortColumn, sortDirection]);
 
   const columns = [
+    { field: "id", headerName: "ID", flex: 0.5, hide: true },
     {
       field: "name",
       headerName: "Company Name",
       flex: 1.5,
       renderCell: ({ row }) => (
         <Typography fontWeight={500}>{row.name}</Typography>
+      ),
+    },
+    {
+      field: "contactEmail",
+      headerName: "Contact Email",
+      flex: 1.5,
+      renderCell: ({ row }) => (
+        <Typography fontWeight={500}>{row.contactEmail}</Typography>
       ),
     },
     {
@@ -132,20 +164,23 @@ const DeletedCompaniesList = () => {
       renderCell: ({ row }) => (
         <Box display="flex" gap={1} justifyContent="center">
           <Tooltip title="Restore">
-            <IconButton
-              color="primary"
-              size="medium"
-              onClick={() => handleRestore(row.id)}
-            >
-              <RestoreIcon fontSize="large" />
-            </IconButton>
+            <span>
+              <IconButton
+                color="primary"
+                size="medium"
+                onClick={() => handleRestore(row.id)}
+                disabled
+              >
+                <RestoreIcon fontSize="large" />
+              </IconButton>
+            </span>
           </Tooltip>
           <Tooltip title="Delete Permanently">
             <IconButton
               sx={{ color: "error.main" }}
               size="medium"
               onClick={() => {
-                handleDelete(row.id);
+                //handleDelete(row.id);  -> To be implemented after discussion with the team
               }}
             >
               <DeleteIcon fontSize="large" />
@@ -178,46 +213,85 @@ const DeletedCompaniesList = () => {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: "400px" }}
         />
-        <Button
-          variant="contained"
-          color="secondary"
-          onClick={() => navigate("/company-list")}
-        >
-          Back to Company List
-        </Button>
+        <Box ml="auto" display="flex" gap={2} alignItems="center">
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={
+              <RefreshIcon
+                sx={{
+                  color: theme.palette.mode === "dark" ? "#FFEB3B" : "#FBC02D",
+                }}
+                fontSize="large"
+              />
+            }
+            onClick={fetchDeletedCompanies}
+            sx={{
+              textTransform: "none",
+              fontWeight: 500,
+              backgroundColor:
+                theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[500],
+              "&:hover": {
+                backgroundColor:
+                  theme.palette.mode === "dark"
+                    ? colors.primary[700]
+                    : colors.primary[600],
+              },
+            }}
+          >
+            Refresh List
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={() => navigate("/company-list")}
+          >
+            Back to Company List
+          </Button>
+        </Box>
       </Box>
 
       {/* Data Table */}
       <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
-        {loading ? (
-          <Box
-            display="flex"
-            justifyContent="center"
-            alignItems="center"
-            height="50vh"
-          >
-            <CircularProgress />
-          </Box>
-        ) : (
-          <DataGrid
-            autoHeight
-            rows={filteredData}
-            columns={columns}
-            getRowId={(row) => row.id}
-            pageSize={10}
-            rowsPerPageOptions={[10, 25, 50]}
-            sx={{
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "primary.light",
-                fontWeight: "bold",
-              },
-              "& .MuiDataGrid-row:hover": {
-                backgroundColor: "action.hover",
-              },
-            }}
-          />
-        )}
+        <DataGrid
+          autoHeight
+          rows={deletedCompanies}
+          columns={columns}
+          getRowId={(row) => row.id}
+          page={page}
+          onPageChange={(newPage) => setPage(newPage)}
+          pageSize={pageSize}
+          onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+          rowCount={totalCount}
+          pagination
+          paginationMode="server"
+          sortingMode="server"
+          onSortModelChange={(sortModel) => {
+            if (sortModel.length > 0) {
+              setSortColumn(sortModel[0].field);
+              setSortDirection(sortModel[0].sort || "desc");
+            } else {
+              setSortColumn("deletedAt");
+              setSortDirection("desc");
+            }
+          }}
+          checkboxSelection
+          disableSelectionOnClick
+          rowsPerPageOptions={[10, 25, 50]}
+          sx={{
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: "primary.light",
+              fontWeight: "bold",
+            },
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "action.hover",
+            },
+          }}
+        />
       </Paper>
+
       <ToastContainer />
     </Box>
   );

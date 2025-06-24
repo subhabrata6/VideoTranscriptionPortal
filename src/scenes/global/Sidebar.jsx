@@ -16,6 +16,7 @@ import PieChartOutlineOutlinedIcon from "@mui/icons-material/PieChartOutlineOutl
 import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+import WorkIcon from "@mui/icons-material/Work";
 import BusinessIcon from "@mui/icons-material/Business";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -152,14 +153,21 @@ const Sidebar = () => {
                 <Item
                   title="Role"
                   to="/role-list"
-                  icon={<AdminPanelSettingsIcon />}
+                  icon={<WorkIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
                 <Item
                   title="Users"
-                  to="/team"
+                  to="/user-list"
                   icon={<PersonAddIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Modules"
+                  to="/module-list"
+                  icon={<ViewModuleIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
@@ -171,7 +179,7 @@ const Sidebar = () => {
               <>
                 <Item
                   title="Users"
-                  to="/team"
+                  to="/user-list"
                   icon={<PersonAddIcon />}
                   selected={selected}
                   setSelected={setSelected}
@@ -197,13 +205,13 @@ const Sidebar = () => {
                   selected={selected}
                   setSelected={setSelected}
                 />
-                <Item
+                {/* <Item
                   title="Modules"
-                  to="/modules"
+                  to="/module-list"
                   icon={<ViewModuleIcon />}
                   selected={selected}
                   setSelected={setSelected}
-                />
+                /> */}
                 <Item
                   title="Actions"
                   to="/actions"
