@@ -70,79 +70,82 @@ const CreateUser = () => {
     fetchCompanies();
   }, []);
 
-  useEffect(() => {
-    const fetchUserDetails = async () => {
-      setLoading(true);
-      try {
-        const response = await Api.get(`${ApiEndpoints.USERS}/${userId}`);
-        if (response.statusCode === 200 && response.success) {
-          const userData = response.data;
-
-          const companyId = userData.companyId || "";
-          const departmentId = userData.departmentId || "";
-          const roleId = userData.roleId?.[0] || "";
-
-          setInitialValues({
-            name: userData.name || "",
-            email: userData.email || "",
-            companyId,
-            roleId,
-            departmentId,
-          });
-
-          await fetchRelatedData(companyId, true, roleId, departmentId);
-        } else {
-          messageHelper.showErrorToast("User not found");
-          setTimeout(() => navigate("/user-list"), 3000);
-        }
-      } catch (err) {
-        console.error("Error fetching user details", err);
-        navigate("/user-list");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isEditMode) fetchUserDetails();
-  }, [userId]);
-
-  const fetchRelatedData = async (companyId, isEditing = false, selectedRoleId = null, selectedDeptId = null) => {
+ useEffect(() => {
+  const fetchUserDetails = async () => {
+    setLoading(true);
     try {
-      const response = await Api.get(`${ApiEndpoints.COMPANIES}/${companyId}/related/departments,roles`);
-      const fetchedRoles = response.data?.roles || [];
-      const fetchedDepartments = response.data?.departments || [];
+      const response = await Api.get(`${ApiEndpoints.USERS}/${userId}`);
+      if (response.statusCode === 200 && response.success) {
+        const userData = response.data;
 
-      setRoles(fetchedRoles);
-      setDepartments(fetchedDepartments);
+        const companyId = userData.companyId || "";
+        const departmentId = userData.departmentId || "";
+        const roleId = userData.roleId?.[0] || "";
 
-      // Optional: Set default role/department for SuperAdmin on create
-      if (!isEditing && isSuperAdmin) {
-        const adminRole = fetchedRoles.find((role) =>
-          role.displayName.toLowerCase().includes("admin")
-        );
-        const adminDept = fetchedDepartments.find((dept) =>
-          dept.name.toLowerCase().includes("admin")
-        );
-        console.log("Previous data:", initialValues);
+        setInitialValues({
+          name: userData.name || "",
+          email: userData.email || "",
+          companyId,
+          roleId,
+          departmentId,
+        });
 
-        setInitialValues((prev) => ({
-          ...prev,
-          roleId: adminRole?.id || fetchedRoles[0]?.id || "",
-          departmentId: adminDept?.id || fetchedDepartments[0]?.id || "",
-        }));
-      }
-
-      if (isEditing) {
-        setInitialValues((prev) => ({
-          ...prev,
-          roleId: selectedRoleId || "",
-          departmentId: selectedDeptId || "",
-        }));
+        // Delay fetch until Formik is ready to set fields
+        setTimeout(() => {
+          fetchRelatedData(companyId, true, roleId, departmentId, () => {});
+        }, 0);
+      } else {
+        messageHelper.showErrorToast("User not found");
+        setTimeout(() => navigate("/user-list"), 3000);
       }
     } catch (err) {
-      console.error("Failed to fetch roles or departments", err);
+      console.error("Error fetching user details", err);
+      navigate("/user-list");
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (isEditMode) fetchUserDetails();
+}, [userId]);
+
+
+ const fetchRelatedData = async (
+  companyId,
+  isEditing = false,
+  selectedRoleId = null,
+  selectedDeptId = null,
+  setFieldValue
+) => {
+  try {
+    const response = await Api.get(
+      `${ApiEndpoints.COMPANIES}/${companyId}/related/departments,roles`
+    );
+    const fetchedRoles = response.data?.roles || [];
+    const fetchedDepartments = response.data?.departments || [];
+
+    setRoles(fetchedRoles);
+    setDepartments(fetchedDepartments);
+
+    if (isEditing) {
+      setFieldValue("roleId", selectedRoleId || "");
+      setFieldValue("departmentId", selectedDeptId || "");
+    } else if (isSuperAdmin) {
+      const adminRole = fetchedRoles.find((r) =>
+        r.displayName.toLowerCase().includes("admin")
+      );
+      const adminDept = fetchedDepartments.find((d) =>
+        d.name.toLowerCase().includes("admin")
+      );
+
+      setFieldValue("roleId", adminRole?.id || fetchedRoles[0]?.id || "");
+      setFieldValue("departmentId", adminDept?.id || fetchedDepartments[0]?.id || "");
+    }
+  } catch (err) {
+    console.error("Failed to fetch roles or departments", err);
+  }
+};
+
 
   const handleFormSubmit = async (values) => {
     try {
@@ -252,12 +255,12 @@ const CreateUser = () => {
                     name="companyId"
                     value={values.companyId}
                     onChange={async (e) => {
-                      const selectedCompanyId = e.target.value;
-                      setFieldValue("companyId", selectedCompanyId);
-                      setFieldValue("roleId", "");
-                      setFieldValue("departmentId", "");
-                      await fetchRelatedData(selectedCompanyId, false);
-                    }}
+    const selectedCompanyId = e.target.value;
+    setFieldValue("companyId", selectedCompanyId);
+    setFieldValue("roleId", "");
+    setFieldValue("departmentId", "");
+    await fetchRelatedData(selectedCompanyId, false, null, null, setFieldValue);
+  }}
                     onBlur={handleBlur}
                     error={!!touched.companyId && !!errors.companyId}
                     helperText={touched.companyId && errors.companyId}
