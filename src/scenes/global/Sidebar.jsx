@@ -53,8 +53,15 @@ const Sidebar = () => {
   const [selected, setSelected] = useState("Dashboard");
   const { auth } = useContext(AuthContext);
 
+  const userRole = auth?.role
+    ? auth.role
+        .replace(/([a-z])([A-Z])/g, "$1 $2") // Split camelCase/PascalCase
+        .toUpperCase()
+    : "";
+
   const isSuperAdmin = auth?.role === "SuperAdmin";
-  const isCompanyAdmin = auth?.role === "CompanyAdmin";
+  const isCompanyAdmin = (auth?.role || "").includes("CompanyAdmin");
+
 
   return (
     <Box
@@ -95,7 +102,7 @@ const Sidebar = () => {
                 ml="15px"
               >
                 <Typography variant="h3" color={colors.grey[100]}>
-                  {"User"}
+                  {"Sizing Tool"}
                 </Typography>
                 <IconButton onClick={() => setIsCollapsed(!isCollapsed)}>
                   <MenuOutlinedIcon />
@@ -107,13 +114,13 @@ const Sidebar = () => {
           {!isCollapsed && (
             <Box mb="25px">
               <Box display="flex" justifyContent="center" alignItems="center">
-                <img
+                {/* <img
                   alt="profile-user"
                   width="100px"
                   height="100px"
                   src={`../../assets/user.png`}
                   style={{ cursor: "pointer", borderRadius: "50%" }}
-                />
+                /> */}
               </Box>
               <Box textAlign="center">
                 <Typography
@@ -125,7 +132,7 @@ const Sidebar = () => {
                   {auth?.claims?.name || "User"}
                 </Typography>
                 <Typography variant="h5" color={colors.greenAccent[500]}>
-                  {auth?.role || "User"}
+                  {userRole || "User"}
                 </Typography>
               </Box>
             </Box>
@@ -165,9 +172,23 @@ const Sidebar = () => {
                   setSelected={setSelected}
                 />
                 <Item
+                  title="Actions"
+                  to="/action-list"
+                  icon={<CallToActionIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
                   title="Modules"
                   to="/module-list"
                   icon={<ViewModuleIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Role Permissions"
+                  to="/role-permissions"
+                  icon={<LockIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
@@ -192,37 +213,16 @@ const Sidebar = () => {
                   setSelected={setSelected}
                 />
                 <Item
-                  title="Project"
-                  to="/project"
-                  icon={<ReceiptOutlinedIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
                   title="Client"
                   to="/create-client"
                   icon={<PeopleAltIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
-                {/* <Item
-                  title="Modules"
-                  to="/module-list"
-                  icon={<ViewModuleIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                /> */}
                 <Item
-                  title="Actions"
-                  to="/actions"
-                  icon={<CallToActionIcon />}
-                  selected={selected}
-                  setSelected={setSelected}
-                />
-                <Item
-                  title="Role Permissions"
-                  to="/role-permissions"
-                  icon={<LockIcon />}
+                  title="Project"
+                  to="/project"
+                  icon={<ReceiptOutlinedIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />

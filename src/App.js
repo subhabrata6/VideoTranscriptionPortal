@@ -7,7 +7,6 @@ import UserList from "./scenes/user-list";
 import Invoices from "./scenes/invoices";
 import Contacts from "./scenes/contacts";
 import Bar from "./scenes/bar";
-import CreateUser from "./scenes/create-user";
 import Line from "./scenes/line";
 import Pie from "./scenes/pie";
 import FAQ from "./scenes/faq";
@@ -25,6 +24,13 @@ import DeletedRolesList from "./scenes/archived-role-list";
 import CreateRole from "./scenes/create-role";
 import ModuleList from "./scenes/module-list";
 import CreateModule  from "./scenes/create-module";
+import Unauthorized from "./data/Helpers/UnauthorizedPage";
+import CreateUser from "./scenes/create-user";
+import ArchivedUsersList from "./scenes/archived-user-list";
+import ActionList from "./scenes/actions-list";
+import CreateAction from "./scenes/create-action";
+import RolePermissionsManager from "./scenes/permissions-manager";
+import AdminDashboard from "./scenes/admin-dashboard";
 import { AuthProvider } from "./data/Helpers/AuthContext";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { ColorModeContext, useMode } from "./theme";
@@ -60,6 +66,7 @@ function App() {
               <Routes>
                 {/* Public Route - Login Page */}
                 <Route path="/login" element={<LoginForm />} />
+                <Route path="/unauthorized" element={<Unauthorized />} />
                 <Route path="/forget-password" element={<ForgetPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 {/* Protected Routes with Sidebar + Topbar */}
@@ -73,6 +80,7 @@ function App() {
                           <Topbar setIsSidebar={setIsSidebar} />
                           <Routes>
                             <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/admin-dashboard" element={<AdminDashboard />} />
                             <Route path="/user-list" element={<UserList />} />
                             <Route
                               path="/create-company"
@@ -103,13 +111,18 @@ function App() {
                               path="/archived-roles"
                               element={<DeletedRolesList />}
                             />
+                            <Route path="/role-permissions"
+                              element={<RolePermissionsManager />}
+                            />  
                             <Route path="create-module" element={<CreateModule  />} />
                             <Route path="/create-module/:moduleId" element={<CreateModule  />}/>
                             <Route path="/module-list" element={<ModuleList />} />
-                            <Route
-                              path="/create-user"
-                              element={<CreateUser />}
-                            />
+                            <Route path="/create-action" element={<CreateAction />} />
+                            <Route path="/create-action/:actionId" element={<CreateAction />} />
+                            <Route path="/action-list" element={<ActionList />} />
+                            <Route path="/create-user" element={<CreateUser />}/>
+                            <Route path="/create-user/:userId" element={<CreateUser />}/>
+                            <Route path="/archived-users" element={<ArchivedUsersList />}/>
                             <Route path="/bar" element={<Bar />} />
                             <Route path="/pie" element={<Pie />} />
                             <Route path="/line" element={<Line />} />

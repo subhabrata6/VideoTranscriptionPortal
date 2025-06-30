@@ -9,44 +9,43 @@ import {
   Tooltip,
   useTheme,
 } from "@mui/material";
-import { Delete, Edit, Refresh } from "@mui/icons-material";
+import { Edit, Delete, Refresh } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import { ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
-import RefreshIcon from '@mui/icons-material/Refresh';
 import GlobalLoader from "../global/Loader";
 import Api from "../../data/Services/Interceptor";
 import * as messageHelper from "../../data/Helpers/MessageHelper";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
 import { tokens } from "../../theme";
 
-const ModuleList = () => {
+const ActionList = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
 
-  const [modules, setModules] = useState([]);
+  const [actions, setActions] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
-  const [sortColumn, setSortColumn] = useState("ModuleName");
+  const [sortColumn, setSortColumn] = useState("createdAt");
   const [sortDirection, setSortDirection] = useState("desc");
   const [loading, setLoading] = useState(true);
 
-  // Debounced Search
+  // Debounce search input
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
+    const debounce = setTimeout(() => {
       if (search.length === 0 || search.length >= 3) {
         setDebouncedSearch(search);
       }
     }, 500);
-    return () => clearTimeout(delayDebounce);
+    return () => clearTimeout(debounce);
   }, [search]);
 
-  const fetchModules = async () => {
+  const fetchActions = async () => {
     setLoading(true);
     try {
       const params = {
@@ -56,42 +55,45 @@ const ModuleList = () => {
         SortOrder: sortDirection.toUpperCase(),
         Search: debouncedSearch,
       };
-      
-      const response = await Api.get(ApiEndpoints.MODULE, { params });
+
+      const response = await Api.get(ApiEndpoints.ACTIONS, { params });
+
       if (response.statusCode === 200) {
-        setModules(response.data.items);
+        setActions(response.data.items);
         setTotalCount(response.data.totalCount);
+      } else {
+        messageHelper.showErrorToast("Failed to load actions.");
       }
-    } catch (error) {
-      messageHelper.showErrorToast("Failed to fetch modules: " + error.message);
+    } catch (err) {
+      messageHelper.showErrorToast("Error fetching actions: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchModules();
+    fetchActions();
   }, [page, pageSize, sortColumn, sortDirection, debouncedSearch]);
 
-  const handleEdit = (module) => {
-    navigate(`/create-module/${module.id}`);
+  const handleEdit = (row) => {
+    navigate(`/create-action/${row.id}`);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     messageHelper.showConfirmationToast(
-      "Are you sure you want to delete this module?",
+      "Are you sure you want to delete this action?",
       {
         onConfirm: async () => {
           try {
-            const response = await Api.delete(`${ApiEndpoints.MODULE}/${id}`);
+            const response = await Api.delete(`${ApiEndpoints.ACTION}/${id}`);
             if (response.statusCode === 200) {
-              messageHelper.showSuccessToast("Module deleted successfully.");
-              fetchModules();
+              messageHelper.showSuccessToast("Action deleted successfully.");
+              fetchActions();
             } else {
-              messageHelper.showErrorToast("Failed to delete module.");
+              messageHelper.showErrorToast("Delete failed.");
             }
           } catch (err) {
-            messageHelper.showErrorToast("Delete failed: " + err.message);
+            messageHelper.showErrorToast("Error deleting: " + err.message);
           }
         },
       }
@@ -101,12 +103,12 @@ const ModuleList = () => {
   const columns = [
     { field: "id", headerName: "ID", flex: 0.5, hide: true },
     {
-      field: "moduleName",
-      headerName: "Module Name",
+      field: "actionName",
+      headerName: "Action Name",
       flex: 1,
       renderCell: ({ row }) => (
-        <Typography fontSize={"large"} sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
-          {row.moduleName}
+        <Typography fontSize="large" sx={{ wordBreak: "break-word" }}>
+          {row.actionName}
         </Typography>
       ),
       cellClassName: "wrap-cell",
@@ -124,7 +126,7 @@ const ModuleList = () => {
       flex: 0.8,
       sortable: false,
       renderCell: ({ row }) => (
-        <Box display="flex" gap={1} sx={{ whiteSpace: "normal" }}>
+        <Box display="flex" gap={1}>
           <Tooltip title="Edit">
             <IconButton color="warning" onClick={() => handleEdit(row)}>
               <Edit fontSize="large" />
@@ -137,24 +139,12 @@ const ModuleList = () => {
           </Tooltip>
         </Box>
       ),
-      cellClassName: "wrap-cell",
     },
   ];
 
-  // Add this style to DataGrid sx prop (in your DataGrid component):
-  // sx={{
-  //   ...,
-  //   "& .wrap-cell": {
-  //     whiteSpace: "normal !important",
-  //     wordBreak: "break-word !important",
-  //     lineHeight: "1.4",
-  //     display: "block",
-  //   },
-  // }}
-
   return (
     <Box sx={{ minHeight: "100vh", background: colors.primary[400], p: 4 }}>
-      <Header title="MODULE LIST" subtitle="List of All Modules" />
+      <Header title="ACTIONS LIST" subtitle="List of All Actions" />
 
       <Box
         display="flex"
@@ -166,25 +156,25 @@ const ModuleList = () => {
       >
         <TextField
           label="Search"
-          placeholder="Search by Module Name"
+          placeholder="Search by Action Name"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: "400px" }}
         />
 
-        <Box ml="auto" display="flex" gap={2} alignItems="center">
+        <Box ml="auto" display="flex" gap={2}>
           <Button
             variant="contained"
             color="primary"
+            onClick={fetchActions}
             startIcon={
-              <RefreshIcon
+              <Refresh
                 sx={{
                   color: theme.palette.mode === "dark" ? "#FFEB3B" : "#FBC02D",
                 }}
                 fontSize="large"
               />
             }
-            onClick={fetchModules}
             sx={{
               textTransform: "none",
               fontWeight: 500,
@@ -202,12 +192,13 @@ const ModuleList = () => {
           >
             Refresh List
           </Button>
+
           <Button
             variant="contained"
             color="secondary"
-            onClick={() => navigate("/create-module")}
+            onClick={() => navigate("/create-action")}
           >
-            Add Module
+            Add Action
           </Button>
         </Box>
       </Box>
@@ -218,7 +209,7 @@ const ModuleList = () => {
         ) : (
           <DataGrid
             autoHeight
-            rows={modules}
+            rows={actions}
             columns={columns}
             getRowId={(row) => row.id}
             page={page}
@@ -239,21 +230,28 @@ const ModuleList = () => {
             disableSelectionOnClick
             sx={{
               "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: theme.palette.mode === "dark"
-                  ? colors.primary[600]
-                  : colors.primary[900],
+                backgroundColor:
+                  theme.palette.mode === "dark"
+                    ? colors.primary[600]
+                    : colors.primary[900],
                 fontWeight: "bold",
                 fontSize: "1.2rem",
               },
               "& .MuiDataGrid-cell": {
                 fontSize: "1.1rem",
-                py: 2, // Increase vertical padding
+                py: 2,
               },
               "& .MuiDataGrid-row:hover": {
                 backgroundColor: "action.hover",
               },
               "& .MuiCheckbox-root": {
                 color: "primary.main",
+              },
+              "& .wrap-cell": {
+                whiteSpace: "normal !important",
+                wordBreak: "break-word !important",
+                lineHeight: "1.4",
+                display: "block",
               },
             }}
           />
@@ -265,4 +263,4 @@ const ModuleList = () => {
   );
 };
 
-export default ModuleList;
+export default ActionList;

@@ -108,23 +108,52 @@ const CompanyList = () => {
   };
 
   const columns = [
-    { field: "id", headerName: "ID", flex: 0.5, hide: true },
+    { field: "id", headerName: "ID", flex: 0.5, hide: true, cellClassName: "wrap-cell" },
     {
       field: "name",
       headerName: "Company Name",
       flex: 1,
+      cellClassName: "wrap-cell",
       renderCell: ({ row }) => (
-        <Typography fontWeight={500}>{row.name}</Typography>
+        <Typography fontSize={"large"} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {row.name}
+        </Typography>
       ),
     },
-    { field: "contactName", headerName: "Contact Person", flex: 1 },
-    { field: "contactEmail", headerName: "Email", flex: 1.5 },
+    {
+      field: "contactName",
+      headerName: "Contact Person",
+      flex: 1,
+      cellClassName: "wrap-cell",
+      renderCell: ({ value }) => (
+        <Typography sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {value}
+        </Typography>
+      ),
+    },
+    {
+      field: "contactEmail",
+      headerName: "Email",
+      flex: 1.5,
+      cellClassName: "wrap-cell",
+      renderCell: ({ value }) => (
+        <Typography sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {value}
+        </Typography>
+      ),
+    },
     {
       field: "createdAt",
       headerName: "Created On",
       flex: 1,
+      cellClassName: "wrap-cell",
       valueFormatter: (params) =>
         new Date(params.value).toLocaleDateString(),
+      renderCell: ({ value }) => (
+        <Typography sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {new Date(value).toLocaleDateString()}
+        </Typography>
+      ),
     },
     {
       field: "actions",
@@ -132,11 +161,12 @@ const CompanyList = () => {
       flex: 0.8,
       sortable: false,
       filterable: false,
+      cellClassName: "wrap-cell",
       renderCell: ({ row }) => (
         <Box display="flex" gap={1}>
           <Tooltip title="Edit">
             <IconButton
-              color="primary"
+              color="warning"
               size="small"
               onClick={() => handleEdit(row.id)}
             >
@@ -250,8 +280,15 @@ const CompanyList = () => {
             getRowId={(row) => row.id}
             sx={{
               "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "primary.light",
+                backgroundColor: theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[900],
                 fontWeight: "bold",
+                fontSize: "1.2rem",
+              },
+              "& .MuiDataGrid-cell": {
+                fontSize: "1.1rem",
+                py: 2, // Increase vertical padding
               },
               "& .MuiDataGrid-row:hover": {
                 backgroundColor: "action.hover",

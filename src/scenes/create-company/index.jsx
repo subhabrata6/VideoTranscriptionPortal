@@ -46,7 +46,7 @@ const CreateCompany = () => {
   const isEditMode = Boolean(companyId);
 
 
-  const handleFormSubmit = async (values, { resetForm }) => {
+ const handleFormSubmit = async (values, { resetForm }) => {
   const payload = {
     name: values.name.trim(),
     contactName: values.contactName.trim(),
@@ -61,35 +61,51 @@ const CreateCompany = () => {
       const response = await Api.put(ApiEndpoints.COMPANIES + `/${companyId}`, payload);
       if (response.success && response.statusCode === 200) {
         messageHelper.showSuccessToast("Company updated successfully!");
-        //resetForm();
         setTimeout(() => {
           navigate("/company-list");
         }, 3000);
       }
     } else {
       const resp = await Api.post(ApiEndpoints.COMPANIES, payload);
-      if (resp.statusCode === 201) {
-        messageHelper.showSuccessToast("Company created successfully!");
-        resetForm();
-        setTimeout(() => {
-          navigate("/company-list");
-        }, 3000);
-      }
-      else {
+
+      if (resp.statusCode === 201 && resp.data?.id) {
+        // Department creation payload
+        const departmentPayload = {
+          name: `${resp.data.name} - Administrator`,
+          companyId: resp.data.id,
+        };
+
+        try {
+          const deptResp = await Api.post(ApiEndpoints.DEPARTMENTS, departmentPayload);
+          if (deptResp.statusCode === 201) {
+            messageHelper.showSuccessToast("Company and Administrator Department created successfully!");
+            resetForm();
+            setTimeout(() => {
+              navigate("/company-list");
+            }, 3000);
+          } else {
+            messageHelper.showErrorToast("Company created, but failed to create Administrator Department.");
+          }
+        } catch (deptErr) {
+          console.error("Error creating department:", deptErr);
+          messageHelper.showErrorToast("Company created, but department creation failed.");
+        }
+      } else {
         messageHelper.showErrorToast("Failed to create company.");
       }
     }
-    
   } catch (error) {
     console.error("Error saving company:", error);
-    if (error.response.data.message.includes("Company name must be unique")) {
-      messageHelper.showErrorToast("Similar Company Name already exists. Please restore the company from the archive or create a new company with a different name.");
-    }
-    else{
+    if (error.response?.data?.message?.includes("Company name must be unique")) {
+      messageHelper.showErrorToast(
+        "Similar Company Name already exists. Please restore the company from the archive or create a new company with a different name."
+      );
+    } else {
       messageHelper.showErrorToast("Error saving company. Please try again later.");
     }
   }
 };
+
 
 
   const fetchCompany = async () => {

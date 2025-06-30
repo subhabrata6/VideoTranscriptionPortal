@@ -1,10 +1,31 @@
 // src/routes/PrivateRoute.js
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import React, { useContext } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { AuthContext } from "../Helpers/AuthContext";
+import GlobalLoader from "../../scenes/global/Loader";
 
-const PrivateRoute = () => {
-  const token = localStorage.getItem('token');
-  return token ? <Outlet /> : <Navigate to="/login" replace />;
+/**
+ * Usage:
+ * <Route element={<PrivateRoute allowedRoles={["Admin", "Manager"]} />}>
+ *   <Route path="/admin-dashboard" element={<AdminDashboard />} />
+ * </Route>
+ */
+const PrivateRoute = ({ allowedRoles = [] }) => {
+  const { auth, isAuthenticated, isLoading } = useContext(AuthContext);
+  const location = useLocation();
+
+  if (isLoading) 
+    return <GlobalLoader />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (allowedRoles.length > 0 && !allowedRoles.includes(auth?.role)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  return <Outlet />;
 };
 
 export default PrivateRoute;

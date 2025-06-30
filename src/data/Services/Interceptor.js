@@ -3,6 +3,7 @@ import { showLoader, hideLoader } from '../Helpers/LoaderHelper';
 
 const Api = axios.create({
   baseURL: 'https://localhost:7273/api',
+  withCredentials: true,
 });
 
 let activeRequests = 0; // Tracks the number of active API calls

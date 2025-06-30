@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Paper,
-  CircularProgress,
   IconButton,
   Tooltip,
   Button,
@@ -20,35 +19,33 @@ import Header from "../../components/Header";
 import Api from "../../data/Services/Interceptor";
 import { ToastContainer } from "react-toastify";
 import * as messageHelper from "../../data/Helpers/MessageHelper";
-import dayjs from "dayjs";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
 
-const DeletedCompaniesList = () => {
+const ArchivedUsersList = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
-  const [sortColumn, setSortColumn] = useState("createdAt");
+  const [sortColumn, setSortColumn] = useState("deletedAt");
   const [sortDirection, setSortDirection] = useState("desc");
+
+  const [archivedUsers, setArchivedUsers] = useState([]);
+  const [search, setSearch] = useState("");
+
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
 
-  const [deletedCompanies, setDeletedCompanies] = useState([]);
-  const [search, setSearch] = useState("");
-
-  // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       if (search.length === 0 || search.length >= 3) {
         setDebouncedSearch(search);
       }
     }, 500);
-
     return () => clearTimeout(handler);
   }, [search]);
 
-  const fetchDeletedCompanies = async () => {
+  const fetchArchivedUsers = async () => {
     try {
       const params = {
         PageNumber: page + 1,
@@ -57,112 +54,113 @@ const DeletedCompaniesList = () => {
         SortOrder: sortDirection?.toUpperCase() || "DESC",
         Search: debouncedSearch,
       };
-      const response = await Api.get(
-        ApiEndpoints.COMPANIES + "?archived=true",
-        { params }
-      );
+      const response = await Api.get(ApiEndpoints.USERS + "?archived=true", {
+        params,
+      });
       if (response.statusCode === 200) {
-        setDeletedCompanies(response.data.items);
+        setArchivedUsers(response.data.items);
         setTotalCount(response.data.totalCount);
       }
     } catch (error) {
-      console.error("Error fetching deleted companies:", error);
-      messageHelper.showErrorToast("Failed to load deleted companies.");
+      console.error("Error fetching archived users:", error);
+      messageHelper.showErrorToast("Failed to load archived users.");
     }
   };
 
   const handleRestore = (id) => {
     messageHelper.showConfirmationToast(
-      "Are you sure you want to restore this company?",
+      "Are you sure you want to restore this user?",
       {
         onConfirm: async () => {
-          //console.log("Confirm clicked!");
           try {
             const response = await Api.post(
-              ApiEndpoints.COMPANIES + `/${id}/unarchive`
+              `${ApiEndpoints.USERS}/${id}/unarchive`
             );
             if (response.statusCode === 200) {
-              messageHelper.showSuccessToast("Company restored successfully.");
-              setTimeout(() => {
-                fetchDeletedCompanies();
-              }, 3000);
+              messageHelper.showSuccessToast("User restored successfully.");
+              fetchArchivedUsers();
             } else {
-              messageHelper.showErrorToast("Failed to restore company.");
+              messageHelper.showErrorToast("Failed to restore user.");
             }
           } catch (error) {
-            console.error("Error restoring company:", error);
+            console.error("Error restoring user:", error);
             messageHelper.showErrorToast("Restore failed: " + error.message);
           }
         },
       }
     );
   };
+
   const handleDelete = async (id) => {
     messageHelper.showConfirmationToast(
-      "Are you sure you want to permanently delete this company?",
+      "Are you sure you want to permanently delete this user?",
       {
         onConfirm: async () => {
-          //console.log("Confirm clicked!");
-          try {
-            messageHelper.showInfoToast(
-              "To be implemented after discussion with the team."
-            );
-            // Uncomment the following lines after discussion with the team
-
-            // const response = await Api.delete(ApiEndpoints.COMPANIES + `/${id}`);
-            // if (response.statusCode === 200) {
-            //   messageHelper.showSuccessToast("Company deleted permanently.");
-            //   setTimeout(() => {
-            //     fetchDeletedCompanies();
-            //   }, 3000);
-            // } else {
-            //   messageHelper.showErrorToast("Failed to delete Company.");
-            // }
-          } catch (error) {
-            console.error("Error deleting company:", error);
-            messageHelper.showErrorToast("Delete failed: " + error.message);
-          }
+          messageHelper.showInfoToast(
+            "To be implemented after discussion with the team."
+          );
         },
       }
     );
   };
 
   useEffect(() => {
-    fetchDeletedCompanies();
+    fetchArchivedUsers();
   }, [page, pageSize, debouncedSearch, sortColumn, sortDirection]);
 
   const columns = [
-    { field: "id", headerName: "ID", flex: 0.5, hide: true, 
-      cellClassName: "wrap-text" 
+    { field: "id", headerName: "ID", flex: 0.5, hide: true },
+    {
+      field: "fullName",
+      headerName: "Full Name",
+      flex: 1.5,
+      renderCell: ({ row }) => (
+        <Typography fontSize={"large"} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {`${row.name}`}
+        </Typography>
+      ),
     },
     {
-      field: "name",
+      field: "email",
+      headerName: "Email",
+      flex: 1.5,
+      renderCell: ({ row }) => (
+        <Typography fontSize={"large"} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {row.email}
+        </Typography>
+      ),
+    },
+    {
+      field: "companyName",
       headerName: "Company Name",
       flex: 1.5,
       renderCell: ({ row }) => (
-        <Typography fontWeight={500} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
-          {row.name}
+        <Typography fontSize={"large"} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {row.companyName}
         </Typography>
       ),
-      cellClassName: "wrap-text"
     },
     {
-      field: "contactEmail",
-      headerName: "Contact Email",
+      field: "departmentName",
+      headerName: "Department Name",
       flex: 1.5,
       renderCell: ({ row }) => (
-        <Typography fontWeight={500} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
-          {row.contactEmail}
+        <Typography fontSize={"large"} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {row.departmentName}
         </Typography>
       ),
-      cellClassName: "wrap-text"
     },
     {
       field: "deletedAt",
       headerName: "Deleted On",
       flex: 1,
-      valueFormatter: (params) => new Date(params.value).toLocaleDateString(),
-      cellClassName: "wrap-text"
+      valueFormatter: (params) =>
+        new Date(params.value).toLocaleDateString(),
+      renderCell: ({ value }) => (
+        <Typography fontSize={"large"} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {new Date(value).toLocaleDateString()}
+        </Typography>
+      ),
     },
     {
       field: "actions",
@@ -176,9 +174,8 @@ const DeletedCompaniesList = () => {
             <span>
               <IconButton
                 color="info"
-                size="medium"
+                size="large"
                 onClick={() => handleRestore(row.id)}
-                disabled
               >
                 <RestoreIcon fontSize="large" />
               </IconButton>
@@ -187,38 +184,27 @@ const DeletedCompaniesList = () => {
           <Tooltip title="Delete Permanently">
             <IconButton
               sx={{ color: "error.main" }}
-              size="medium"
-              onClick={() => {
-                //handleDelete(row.id);  -> To be implemented after discussion with the team
-              }}
+              size="large"
+              onClick={() => handleDelete(row.id)}
             >
               <DeleteIcon fontSize="large" />
             </IconButton>
           </Tooltip>
         </Box>
       ),
-      cellClassName: "wrap-text"
     },
   ];
 
   return (
     <Box sx={{ minHeight: "100vh", background: colors.primary[400], p: 5 }}>
-      <Header
-        title="ARCHIVED COMPANIES"
-        subtitle="List of Archived Companies"
-      />
+      <Header title="ARCHIVED USERS" subtitle="List of Archived Users" />
 
-      {/* Search Bar */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={2}
-      >
+      {/* Search and Actions */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <TextField
           variant="outlined"
           label="Search"
-          placeholder="Search by Company Name"
+          placeholder="Search by name or email"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ width: "400px" }}
@@ -235,7 +221,7 @@ const DeletedCompaniesList = () => {
                 fontSize="large"
               />
             }
-            onClick={fetchDeletedCompanies}
+            onClick={fetchArchivedUsers}
             sx={{
               textTransform: "none",
               fontWeight: 500,
@@ -256,9 +242,9 @@ const DeletedCompaniesList = () => {
           <Button
             variant="contained"
             color="secondary"
-            onClick={() => navigate("/company-list")}
+            onClick={() => navigate("/user-list")}
           >
-            Back to Company List
+            Back to User List
           </Button>
         </Box>
       </Box>
@@ -267,7 +253,7 @@ const DeletedCompaniesList = () => {
       <Paper elevation={4} sx={{ mt: 2, p: 2, borderRadius: 3 }}>
         <DataGrid
           autoHeight
-          rows={deletedCompanies}
+          rows={archivedUsers}
           columns={columns}
           getRowId={(row) => row.id}
           page={page}
@@ -292,7 +278,8 @@ const DeletedCompaniesList = () => {
           rowsPerPageOptions={[10, 25, 50]}
           sx={{
             "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: theme.palette.mode === "dark"
+              backgroundColor:
+                theme.palette.mode === "dark"
                   ? colors.primary[600]
                   : colors.primary[900],
               fontWeight: "bold",
@@ -324,4 +311,4 @@ const DeletedCompaniesList = () => {
   );
 };
 
-export default DeletedCompaniesList;
+export default ArchivedUsersList;

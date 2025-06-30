@@ -1,3 +1,4 @@
+// Imports (unchanged)
 import {
   Box,
   Button,
@@ -5,46 +6,141 @@ import {
   MenuItem,
   InputAdornment,
   useMediaQuery,
+  Paper,
 } from "@mui/material";
 import { Formik } from "formik";
 import * as yup from "yup";
 import Header from "../../components/Header";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import Api from "../../data/Services/Interceptor";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import EmailIcon from "@mui/icons-material/Email";
 import BusinessIcon from "@mui/icons-material/Business";
 import WorkIcon from "@mui/icons-material/Work";
+import ApartmentIcon from "@mui/icons-material/Apartment";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
+import { ToastContainer } from "react-toastify";
+import * as messageHelper from "../../data/Helpers/MessageHelper";
+import { useSelector } from "react-redux";
+import { AuthContext } from "../../data/Helpers/AuthContext";
 
 const DEFAULT_PASSWORD = "Cispl@123";
+
+const userSchema = yup.object().shape({
+  name: yup.string().required("User name is required"),
+  email: yup.string().email("Invalid email").required("Email is required"),
+  companyId: yup.string().required("Company is required"),
+  roleId: yup.string().required("Role is required"),
+  departmentId: yup.string().required("Department is required"),
+});
 
 const CreateUser = () => {
   const isNonMobile = useMediaQuery("(min-width:600px)");
   const navigate = useNavigate();
+  const { userId } = useParams();
+  const isEditMode = Boolean(userId);
+  const { auth } = useContext(AuthContext);
 
   const [companies, setCompanies] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(!!isEditMode);
+
+  const isSuperAdmin = auth?.role === "SuperAdmin";
+
+  const [initialValues, setInitialValues] = useState({
+    name: "",
+    email: "",
+    companyId: "",
+    roleId: "",
+    departmentId: "",
+  });
 
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const companyRes = await Api.get(ApiEndpoints.COMPANIES);
-        setCompanies(companyRes.data.items || []);
+        const res = await Api.get(ApiEndpoints.COMPANIES);
+        setCompanies(res.data.items || []);
       } catch (err) {
         console.error("Failed to fetch companies");
       }
     };
+
     fetchCompanies();
   }, []);
 
-  const fetchRolesByCompany = async (companyId) => {
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      setLoading(true);
+      try {
+        const response = await Api.get(`${ApiEndpoints.USERS}/${userId}`);
+        if (response.statusCode === 200 && response.success) {
+          const userData = response.data;
+
+          const companyId = userData.companyId || "";
+          const departmentId = userData.departmentId || "";
+          const roleId = userData.roleId?.[0] || "";
+
+          setInitialValues({
+            name: userData.name || "",
+            email: userData.email || "",
+            companyId,
+            roleId,
+            departmentId,
+          });
+
+          await fetchRelatedData(companyId, true, roleId, departmentId);
+        } else {
+          messageHelper.showErrorToast("User not found");
+          setTimeout(() => navigate("/user-list"), 3000);
+        }
+      } catch (err) {
+        console.error("Error fetching user details", err);
+        navigate("/user-list");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isEditMode) fetchUserDetails();
+  }, [userId]);
+
+  const fetchRelatedData = async (companyId, isEditing = false, selectedRoleId = null, selectedDeptId = null) => {
     try {
-      const roleRes = await Api.get(ApiEndpoints.ROLE +`?companyId=${companyId}`);
-      setRoles(roleRes.data.items || []);
+      const response = await Api.get(`${ApiEndpoints.COMPANIES}/${companyId}/related/departments,roles`);
+      const fetchedRoles = response.data?.roles || [];
+      const fetchedDepartments = response.data?.departments || [];
+
+      setRoles(fetchedRoles);
+      setDepartments(fetchedDepartments);
+
+      // Optional: Set default role/department for SuperAdmin on create
+      if (!isEditing && isSuperAdmin) {
+        const adminRole = fetchedRoles.find((role) =>
+          role.displayName.toLowerCase().includes("admin")
+        );
+        const adminDept = fetchedDepartments.find((dept) =>
+          dept.name.toLowerCase().includes("admin")
+        );
+        console.log("Previous data:", initialValues);
+
+        setInitialValues((prev) => ({
+          ...prev,
+          roleId: adminRole?.id || fetchedRoles[0]?.id || "",
+          departmentId: adminDept?.id || fetchedDepartments[0]?.id || "",
+        }));
+      }
+
+      if (isEditing) {
+        setInitialValues((prev) => ({
+          ...prev,
+          roleId: selectedRoleId || "",
+          departmentId: selectedDeptId || "",
+        }));
+      }
     } catch (err) {
-      console.error("Failed to fetch roles");
+      console.error("Failed to fetch roles or departments", err);
     }
   };
 
@@ -52,174 +148,214 @@ const CreateUser = () => {
     try {
       const payload = {
         email: values.email,
-        password: DEFAULT_PASSWORD,
         companyId: values.companyId,
+        departmentId: values.departmentId,
         name: values.name,
-        roles: [values.roleId], // Ensure roles is an array
+        roles: [values.roleId],
+        ...(isEditMode ? {} : { password: DEFAULT_PASSWORD }),
       };
-      
-      const response = await Api.post(ApiEndpoints.USERS, payload);
+
+      const response = isEditMode
+        ? await Api.put(`${ApiEndpoints.USERS}/${userId}`, payload)
+        : await Api.post(ApiEndpoints.USERS, payload);
+
       if (response.success) {
-        navigate("/user-list");
+        messageHelper.showSuccessToast(
+          isEditMode ? "User updated successfully." : "User created successfully."
+        );
+        setTimeout(() => navigate("/user-list"), 3000);
+      } else {
+        messageHelper.showErrorToast("User save failed: " + response.message);
       }
     } catch (err) {
-      console.error("Failed to create user", err);
+      console.error("User save failed", err);
+      messageHelper.showErrorToast("Operation failed: " + err.message);
     }
   };
 
   return (
     <Box m="20px">
-      <Header title="CREATE USER" subtitle="Create a New User Profile" />
+      <Header
+        title={isEditMode ? "EDIT USER" : "CREATE USER"}
+        subtitle={isEditMode ? "Update an existing user profile" : "Create a new user profile"}
+      />
+      <Paper elevation={3} sx={{ p: 4 }}>
+        {!loading && (
+          <Formik
+            enableReinitialize
+            initialValues={initialValues}
+            validationSchema={userSchema}
+            onSubmit={handleFormSubmit}
+          >
+            {({
+              values,
+              errors,
+              touched,
+              handleBlur,
+              handleChange,
+              handleSubmit,
+              setFieldValue,
+            }) => (
+              <form onSubmit={handleSubmit}>
+                <Box
+                  display="grid"
+                  gap="30px"
+                  gridTemplateColumns="repeat(4, minmax(0, 1fr))"
+                  sx={{ "& > div": { gridColumn: isNonMobile ? undefined : "span 4" } }}
+                >
+                  <TextField
+                    fullWidth
+                    variant="filled"
+                    label="Name"
+                    name="name"
+                    value={values.name}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={!!touched.name && !!errors.name}
+                    helperText={touched.name && errors.name}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <PersonIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ gridColumn: "span 2" }}
+                  />
 
-      <Formik
-        onSubmit={handleFormSubmit}
-        initialValues={initialValues}
-        validationSchema={userSchema}
-      >
-        {({
-          values,
-          errors,
-          touched,
-          handleBlur,
-          handleChange,
-          handleSubmit,
-          setFieldValue,
-        }) => (
-          <form onSubmit={handleSubmit}>
-            <Box
-              display="grid"
-              gap="30px"
-              gridTemplateColumns="repeat(4, minmax(0, 1fr))"
-              sx={{
-                "& > div": { gridColumn: isNonMobile ? undefined : "span 4" },
-              }}
-            >
-              <TextField
-                fullWidth
-                variant="filled"
-                label="User Name"
-                onBlur={handleBlur}
-                onChange={handleChange}
-                value={values.name}
-                name="name"
-                error={!!touched.name && !!errors.name}
-                helperText={touched.name && errors.name}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ gridColumn: "span 2" }}
-              />
+                  <TextField
+                    fullWidth
+                    variant="filled"
+                    label="Email"
+                    name="email"
+                    value={values.email}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={!!touched.email && !!errors.email}
+                    helperText={touched.email && errors.email}
+                    disabled={isEditMode}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ gridColumn: "span 2" }}
+                  />
 
-              <TextField
-                fullWidth
-                variant="filled"
-                label="Email"
-                onBlur={handleBlur}
-                onChange={handleChange}
-                value={values.email}
-                name="email"
-                error={!!touched.email && !!errors.email}
-                helperText={touched.email && errors.email}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EmailIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ gridColumn: "span 2" }}
-              />
+                  <TextField
+                    select
+                    fullWidth
+                    variant="filled"
+                    label="Company"
+                    name="companyId"
+                    value={values.companyId}
+                    onChange={async (e) => {
+                      const selectedCompanyId = e.target.value;
+                      setFieldValue("companyId", selectedCompanyId);
+                      setFieldValue("roleId", "");
+                      setFieldValue("departmentId", "");
+                      await fetchRelatedData(selectedCompanyId, false);
+                    }}
+                    onBlur={handleBlur}
+                    error={!!touched.companyId && !!errors.companyId}
+                    helperText={touched.companyId && errors.companyId}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <BusinessIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ gridColumn: "span 2" }}
+                  >
+                    {companies.map((company) => (
+                      <MenuItem key={company.id} value={company.id}>
+                        {company.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
 
-              <TextField
-                select
-                fullWidth
-                variant="filled"
-                label="Select Company"
-                name="companyId"
-                value={values.companyId}
-                onChange={async (e) => {
-                  const selectedCompanyId = e.target.value;
-                  setFieldValue("companyId", selectedCompanyId);
-                  setFieldValue("roleId", ""); // Reset role when company changes
-                  setRoles([]);
-                  await fetchRolesByCompany(selectedCompanyId);
-                }}
-                onBlur={handleBlur}
-                error={!!touched.companyId && !!errors.companyId}
-                helperText={touched.companyId && errors.companyId}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <BusinessIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ gridColumn: "span 2" }}
-              >
-                {companies.map((company) => (
-                  <MenuItem key={company.id} value={company.id}>
-                    {company.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                  <TextField
+                    select
+                    fullWidth
+                    variant="filled"
+                    label="Role"
+                    name="roleId"
+                    value={values.roleId}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={!!touched.roleId && !!errors.roleId}
+                    helperText={touched.roleId && errors.roleId}
+                    disabled={!values.companyId}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <WorkIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ gridColumn: "span 2" }}
+                  >
+                    {roles.map((role) => (
+                      <MenuItem key={role.id} value={role.id}>
+                        {role.displayName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
 
-              <TextField
-                select
-                fullWidth
-                variant="filled"
-                label="Select Role"
-                name="roleId"
-                value={values.roleId}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                error={!!touched.roleId && !!errors.roleId}
-                helperText={touched.roleId && errors.roleId}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <WorkIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ gridColumn: "span 2" }}
-                disabled={!values.companyId || roles.length === 0}
-              >
-                {roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    {role.displayName}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Box>
+                  <TextField
+                    select
+                    fullWidth
+                    variant="filled"
+                    label="Department"
+                    name="departmentId"
+                    value={values.departmentId}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={!!touched.departmentId && !!errors.departmentId}
+                    helperText={touched.departmentId && errors.departmentId}
+                    disabled={!values.companyId}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <ApartmentIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ gridColumn: "span 2" }}
+                  >
+                    {departments.map((dept) => (
+                      <MenuItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
 
-            <Box display="flex" justifyContent="end" mt="20px">
-              <Button type="submit" color="secondary" variant="contained">
-                Create New User
-              </Button>
-            </Box>
-          </form>
+                <Box display="flex" justifyContent="end" mt="20px">
+                  <Button type="submit" color="secondary" variant="contained">
+                    {isEditMode ? "Update User" : "Create New User"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="contained"
+                    color="primary"
+                    sx={{ ml: 2 }}
+                    onClick={() => navigate("/user-list")}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              </form>
+            )}
+          </Formik>
         )}
-      </Formik>
+        <ToastContainer />
+      </Paper>
     </Box>
   );
-};
-
-const userSchema = yup.object().shape({
-  name: yup.string().required("User name is required"),
-  email: yup.string().email("Invalid email").required("Email is required"),
-  companyId: yup.string().required("Company is required"),
-  roleId: yup.string().required("Role is required"),
-});
-
-const initialValues = {
-  name: "",
-  email: "",
-  companyId: "",
-  roleId: "",
 };
 
 export default CreateUser;

@@ -109,11 +109,12 @@ const RoleList = () => {
   };
 
   const columns = [
-    { field: "id", headerName: "ID", flex: 0.5, hide: true },
+    { field: "id", headerName: "ID", flex: 0.5, hide: true, cellClassName: "wrap-cell" },
     {
       field: "displayName",
       headerName: "Role Name",
       flex: 1.2,
+      cellClassName: "wrap-cell",
     },
     {
       field: "roleType",
@@ -123,17 +124,20 @@ const RoleList = () => {
       renderCell: ({ row }) => (
         <EnumDisplay type="RoleType" value={row.roleType} />
       ),
+      cellClassName: "wrap-cell",
     },
     {
       field: "companyName",
       headerName: "Company Name",
       flex: 1.5,
+      cellClassName: "wrap-cell",
     },
     {
       field: "createdAt",
       headerName: "Created On",
       flex: 1,
       valueFormatter: (params) => new Date(params.value).toLocaleDateString(),
+      cellClassName: "wrap-cell",
     },
     {
       field: "actions",
@@ -145,11 +149,11 @@ const RoleList = () => {
         <Box display="flex" gap={1}>
           <Tooltip title="Edit">
             <IconButton
-              color="primary"
+              color="warning"
               size="small"
               onClick={() => handleEdit(row.id)}
             >
-              <EditIcon fontSize="inherit" />
+              <EditIcon fontSize="large" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Archive">
@@ -158,11 +162,12 @@ const RoleList = () => {
               size="small"
               onClick={() => handleDelete(row.id)}
             >
-              <ArchiveIcon fontSize="inherit" />
+              <ArchiveIcon fontSize="large" />
             </IconButton>
           </Tooltip>
         </Box>
       ),
+      cellClassName: "wrap-cell",
     },
   ];
 
@@ -265,8 +270,20 @@ const RoleList = () => {
           getRowId={(row) => row.id}
           sx={{
             "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "primary.light",
+              backgroundColor: theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[900],
               fontWeight: "bold",
+              fontSize: "1.2rem",
+            },
+            "& .MuiDataGrid-row": {
+              fontSize: "1.15rem",
+              minHeight: "56px",
+              maxHeight: "56px",
+            },
+            "& .MuiDataGrid-cell": {
+              fontSize: "1.15rem",
+              py: 2,
             },
             "& .MuiDataGrid-row:hover": {
               backgroundColor: "action.hover",

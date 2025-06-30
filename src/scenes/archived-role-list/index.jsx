@@ -133,14 +133,19 @@ const DeletedRolesList = () => {
 
 
   const columns = [
-    { field: "id", headerName: "ID", flex: 0.5, hide: true },
+    { field: "id", headerName: "ID", flex: 0.5, hide: true, 
+      cellClassName: "wrap-text", headerClassName: "wrap-text" 
+    },
     {
       field: "displayName",
       headerName: "Role Name",
       flex: 1.5,
       renderCell: ({ row }) => (
-        <Typography fontWeight={500}>{row.displayName}</Typography>
+        <Typography fontWeight={500} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {row.displayName}
+        </Typography>
       ),
+      cellClassName: "wrap-text", headerClassName: "wrap-text"
     },
     {
       field: "roleType",
@@ -148,22 +153,29 @@ const DeletedRolesList = () => {
       flex: 1,
       sortable: false,
       renderCell: ({ row }) => (
-        <EnumDisplay type="RoleType" value={row.roleType} />
+        <Box sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          <EnumDisplay type="RoleType" value={row.roleType} />
+        </Box>
       ),
+      cellClassName: "wrap-text", headerClassName: "wrap-text"
     },
     {
       field: "companyName",
       headerName: "Company Name",
       flex: 1.5,
       renderCell: ({ row }) => (
-        <Typography fontWeight={500}>{row.companyName}</Typography>
+        <Typography fontWeight={500} sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
+          {row.companyName}
+        </Typography>
       ),
+      cellClassName: "wrap-text", headerClassName: "wrap-text"
     },
     {
       field: "deletedAt",
       headerName: "Deleted On",
       flex: 1,
       valueFormatter: (params) => new Date(params.value).toLocaleDateString(),
+      cellClassName: "wrap-text", headerClassName: "wrap-text"
     },
     {
       field: "actions",
@@ -172,10 +184,10 @@ const DeletedRolesList = () => {
       sortable: false,
       filterable: false,
       renderCell: ({ row }) => (
-        <Box display="flex" gap={1} justifyContent="center">
+        <Box display="flex" gap={1} justifyContent="center" sx={{ whiteSpace: "pre-line", wordBreak: "break-word" }}>
           <Tooltip title="Restore">
             <IconButton
-              color="primary"
+              color="info"
               size="medium"
               onClick={() => handleRestore(row.id)}
             >
@@ -195,6 +207,7 @@ const DeletedRolesList = () => {
           </Tooltip>
         </Box>
       ),
+      cellClassName: "wrap-text", headerClassName: "wrap-text"
     },
   ];
 
@@ -289,9 +302,16 @@ const DeletedRolesList = () => {
           pagination
           rowsPerPageOptions={[10, 25, 50]}
           sx={{
+            fontSize: "1.15rem",
             "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "primary.light",
+              backgroundColor: theme.palette.mode === "dark"
+                  ? colors.primary[600]
+                  : colors.primary[900],
               fontWeight: "bold",
+              fontSize: "1.2rem",
+            },
+            "& .MuiDataGrid-row": {
+              fontSize: "1.15rem",
             },
             "& .MuiDataGrid-row:hover": {
               backgroundColor: "action.hover",
