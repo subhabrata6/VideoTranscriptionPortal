@@ -91,7 +91,7 @@ const CreateCompany = () => {
           messageHelper.showErrorToast("Company created, but department creation failed.");
         }
       } else {
-        messageHelper.showErrorToast("Failed to create company.");
+        messageHelper.showErrorToast(resp.message);
       }
     }
   } catch (error) {

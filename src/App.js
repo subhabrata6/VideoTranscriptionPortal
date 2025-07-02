@@ -31,6 +31,9 @@ import ActionList from "./scenes/actions-list";
 import CreateAction from "./scenes/create-action";
 import RolePermissionsManager from "./scenes/permissions-manager";
 import AdminDashboard from "./scenes/admin-dashboard";
+import UserProfile from "./scenes/user-profile";
+import DepartmentList from "./scenes/department-list";
+import CreateDepartment from "./scenes/create-department";
 import { AuthProvider } from "./data/Helpers/AuthContext";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { ColorModeContext, useMode } from "./theme";
@@ -81,6 +84,12 @@ function App() {
                           <Routes>
                             <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                            <Route path="/user-profile" element={<UserProfile />} />
+                            <Route path="/department-list" element={<DepartmentList />} />
+                            <Route
+                              path="/create-department"
+                              element={<CreateDepartment />}
+                            />
                             <Route path="/user-list" element={<UserList />} />
                             <Route
                               path="/create-company"

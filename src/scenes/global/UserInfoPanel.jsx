@@ -82,6 +82,7 @@ const UserInfoPanel = () => {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
+        <MenuItem onClick={() => navigate("/user-profile")}>My Account</MenuItem>
         <MenuItem onClick={handleChangePassword}>Change Password</MenuItem>
         <MenuItem onClick={handleLogout}>Logout</MenuItem>
       </Menu>

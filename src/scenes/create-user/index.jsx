@@ -7,7 +7,9 @@ import {
   InputAdornment,
   useMediaQuery,
   Paper,
+  useTheme,
 } from "@mui/material";
+import { tokens } from "../../theme";
 import { Formik } from "formik";
 import * as yup from "yup";
 import Header from "../../components/Header";
@@ -46,6 +48,8 @@ const CreateUser = () => {
   const { userId } = useParams();
   const isEditMode = Boolean(userId);
   const { auth } = useContext(AuthContext);
+  const theme = useTheme();
+    const colors = tokens(theme.palette.mode);
 
   const [companies, setCompanies] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -195,7 +199,7 @@ const CreateUser = () => {
   };
 
   return (
-    <Box m="20px">
+    <Box m="20px" sx={{ backgroundColor: colors.primary[400] }}>
       <Header
         title={isEditMode ? "EDIT USER" : "CREATE USER"}
         subtitle={
@@ -307,6 +311,7 @@ const CreateUser = () => {
                     onBlur={handleBlur}
                     error={!!touched.companyId && !!errors.companyId}
                     helperText={touched.companyId && errors.companyId}
+                    disabled={isEditMode}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">

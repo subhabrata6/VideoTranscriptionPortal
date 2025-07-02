@@ -6,6 +6,7 @@ import "react-pro-sidebar/dist/css/styles.css";
 import { tokens } from "../../theme";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
+import AccountBoxIcon from '@mui/icons-material/AccountBox';
 import ContactsOutlinedIcon from "@mui/icons-material/ContactsOutlined";
 import ReceiptOutlinedIcon from "@mui/icons-material/ReceiptOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
@@ -147,12 +148,11 @@ const Sidebar = () => {
           <Box paddingLeft={isCollapsed ? undefined : "10%"}>
             <Item
               title="Dashboard"
-              to="/"
+              to="/dashboard"
               icon={<HomeOutlinedIcon />}
               selected={selected}
               setSelected={setSelected}
             />
-
             {/* SUPER ADMIN ACCESS ONLY */}
             {isSuperAdmin && (
               <>
@@ -174,6 +174,13 @@ const Sidebar = () => {
                   title="Users"
                   to="/user-list"
                   icon={<PersonAddIcon />}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+                <Item
+                  title="Department"
+                  to="/department-list"
+                  icon={<CategoryIcon />}
                   selected={selected}
                   setSelected={setSelected}
                 />
@@ -213,7 +220,7 @@ const Sidebar = () => {
                 />
                 <Item
                   title="Department"
-                  to="/department"
+                  to="/department-list"
                   icon={<CategoryIcon />}
                   selected={selected}
                   setSelected={setSelected}

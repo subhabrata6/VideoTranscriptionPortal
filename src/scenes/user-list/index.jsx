@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import {
   Box,
   Typography,
@@ -16,7 +16,7 @@ import { DataGrid } from "@mui/x-data-grid";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import SendIcon from '@mui/icons-material/Send';
+import SendIcon from "@mui/icons-material/Send";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SupervisedUserCircleOutlinedIcon from "@mui/icons-material/SupervisedUserCircleOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
@@ -31,6 +31,7 @@ import Api from "../../data/Services/Interceptor";
 import * as messageHelper from "../../data/Helpers/MessageHelper";
 import { ToastContainer } from "react-toastify";
 import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
+import { AuthContext } from "../../data/Helpers/AuthContext";
 
 const UserList = () => {
   const [users, setUsers] = useState([]);
@@ -45,6 +46,9 @@ const UserList = () => {
 
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+
+  const { auth } = useContext(AuthContext);
+  const currentUserId = auth?.claims?.userId || null;
 
   const fetchUsers = async () => {
     try {
@@ -65,12 +69,8 @@ const UserList = () => {
         }));
         setUsers(usersWithAccess);
         setTotalCount(response.data.totalCount);
-      }
-      else if (response.statusCode === 403) {
-        messageHelper.showWarningToast(
-          response.message,
-          { autoClose: false }
-        );
+      } else if (response.statusCode === 403) {
+        messageHelper.showWarningToast(response.message, { autoClose: false });
         setUsers([]);
         setTotalCount(0);
       }
@@ -178,15 +178,21 @@ const UserList = () => {
       {
         onConfirm: async () => {
           try {
-            const response = await Api.post(ApiEndpoints.USERS + `/${id}/ResendInvite`);
+            const response = await Api.post(
+              ApiEndpoints.USERS + `/${id}/ResendInvite`
+            );
             if (response.statusCode === 200) {
               messageHelper.showSuccessToast("Invite sent successfully.");
             } else {
-              messageHelper.showErrorToast("Failed to send invite: " + response.message);
+              messageHelper.showErrorToast(
+                "Failed to send invite: " + response.message
+              );
             }
           } catch (error) {
             console.error("Error sending invite:", error);
-            messageHelper.showErrorToast("Failed to send invite: " + error.message);
+            messageHelper.showErrorToast(
+              "Failed to send invite: " + error.message
+            );
           }
         },
       }
@@ -198,10 +204,13 @@ const UserList = () => {
     {
       field: "name",
       headerName: "Name",
-      flex: 1,
+      flex: 1.5, // Increased width
       sortable: true,
       renderCell: ({ row }) => (
-        <Typography fontSize={"large"} sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+        <Typography
+          fontSize={"medium"}
+          sx={{ whiteSpace: "normal", wordBreak: "break-word" }}
+        >
           {row.name}
         </Typography>
       ),
@@ -213,7 +222,10 @@ const UserList = () => {
       flex: 1.5,
       sortable: true,
       renderCell: ({ row }) => (
-        <Typography sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+        <Typography
+          fontSize={"medium"}
+          sx={{ whiteSpace: "normal", wordBreak: "break-word" }}
+        >
           {row.email}
         </Typography>
       ),
@@ -225,7 +237,10 @@ const UserList = () => {
       flex: 1,
       sortable: false,
       renderCell: ({ row }) => (
-        <Typography sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+        <Typography
+          fontSize={"medium"}
+          sx={{ whiteSpace: "normal", wordBreak: "break-word" }}
+        >
           {row.departmentName}
         </Typography>
       ),
@@ -237,7 +252,10 @@ const UserList = () => {
       flex: 1,
       sortable: false,
       renderCell: ({ row }) => (
-        <Typography sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+        <Typography
+          fontSize={"medium"}
+          sx={{ whiteSpace: "normal", wordBreak: "break-word" }}
+        >
           {row.companyName}
         </Typography>
       ),
@@ -246,7 +264,7 @@ const UserList = () => {
     {
       field: "createdAt",
       headerName: "Created On",
-      flex: 1,
+      flex: 0.5, // Reduced width
       valueFormatter: (params) => new Date(params.value).toLocaleDateString(),
       cellClassName: "wrap-cell",
     },
@@ -256,9 +274,14 @@ const UserList = () => {
       flex: 1,
       sortable: false,
       renderCell: ({ row }) => (
-        <Box display="flex" alignItems="center" gap={1} sx={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+        <Box
+          display="flex"
+          alignItems="center"
+          gap={1}
+          sx={{ whiteSpace: "normal", wordBreak: "break-word" }}
+        >
           {getAccessIcon(row.accessLevel)}
-          <Typography variant="body2" fontSize={"large"}>
+          <Typography variant="body2" fontSize={"medium"}>
             {row.accessLevel}
           </Typography>
         </Box>
@@ -271,37 +294,65 @@ const UserList = () => {
       flex: 0.8,
       sortable: false,
       filterable: false,
-      renderCell: ({ row }) => (
-        <Box display="flex" gap={0.5} justifyContent="center">
-          <Tooltip title="Edit">
-            <IconButton
-              color="warning"
-              size="small"
-              onClick={() => handleEdit(row.id)}
+      renderCell: ({ row }) => {
+        const isCurrentUser = row.id === currentUserId;
+        console.log("Is Current User:", isCurrentUser);
+        return (
+          <Box display="flex" gap={0.5} justifyContent="center">
+            <Tooltip
+              title={isCurrentUser ? "Cannot edit yourself" : "Edit"}
+              componentsProps={{
+                tooltip: { sx: { fontSize: "1.25rem" } },
+              }}
             >
-              <EditIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Inactive">
-            <IconButton
-              color="error"
-              size="small"
-              onClick={() => handleDelete(row.id)}
+              <span>
+                <IconButton
+                  color="warning"
+                  size="small"
+                  onClick={() => handleEdit(row.id)}
+                  disabled={isCurrentUser}
+                >
+                  <EditIcon fontSize="medium" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={isCurrentUser ? "Cannot deactivate yourself" : "Inactive"}
+              componentsProps={{
+                tooltip: { sx: { fontSize: "1.25rem" } },
+              }}
             >
-              <CancelIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Send Invite">
-            <IconButton
-              color="info"
-              size="small"
-              onClick={() => handleReinvite(row.id)}
+              <span>
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleDelete(row.id)}
+                  disabled={isCurrentUser}
+                >
+                  <CancelIcon fontSize="medium" />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={isCurrentUser ? "Cannot invite yourself" : "Resend Invite"}
+              componentsProps={{
+                tooltip: { sx: { fontSize: "1.25rem" } },
+              }}
             >
-              <SendIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+              <span>
+                <IconButton
+                  color="info"
+                  size="small"
+                  onClick={() => handleReinvite(row.id)}
+                  disabled={isCurrentUser}
+                >
+                  <SendIcon fontSize="medium" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
   ];
 
