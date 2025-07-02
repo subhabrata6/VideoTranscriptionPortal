@@ -80,7 +80,7 @@ const CreateAction = () => {
   };
 
   return (
-    <Box p={4}>
+    <Box p={1}>
       <Header
         title={isEditMode ? "EDIT ACTION" : "CREATE ACTION"}
         subtitle={isEditMode ? "Update existing action" : "Create a new action"}

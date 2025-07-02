@@ -7,10 +7,10 @@ import React, {
 } from "react";
 import { decodeAndExtract } from "../Helpers/AuthHelper";
 import Api from "../../data/Services/Interceptor";
+import { ApiEndpoints } from "./ApiEndPoints";
 
 export const AuthContext = createContext(null);
 
-// ✅ Restored getStoredAuth function
 const getStoredAuth = () => {
   try {
     const token = localStorage.getItem("token");
@@ -39,7 +39,6 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-
   const isAuthenticated = useMemo(() => !!auth.token, [auth.token]);
 
   const clearAuth = () => {
@@ -58,7 +57,6 @@ export const AuthProvider = ({ children }) => {
   const setAuth = ({ token, refreshToken, expires, rememberMe }) => {
     try {
       const { claims, role } = decodeAndExtract(token);
-
       localStorage.setItem("token", token);
       localStorage.setItem("refreshToken", refreshToken || "");
       localStorage.setItem("expires", expires || "");
@@ -74,24 +72,57 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🔄 Refresh token logic (as raw JSON string)
+  const refreshTokenIfNeeded = async () => {
+    try {
+      if (!auth.refreshToken) throw new Error("No refresh token available");
+
+      const response = await Api.post(
+        ApiEndpoints.AUTH + "/refresh-token",
+        JSON.stringify(auth.refreshToken), // Send raw string
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.statusCode === 200 && response.data?.token) {
+        setAuth({
+          token: response.data.token,
+          refreshToken: response.data.refreshToken || auth.refreshToken,
+          expires: response.data.expires,
+          rememberMe: true,
+        });
+        return true;
+      }
+    } catch (err) {
+      console.error("Token refresh failed", err);
+    }
+    return false;
+  };
+
   const scheduleAutoLogout = (expiresAt) => {
     const timeout = expiresAt.getTime() - Date.now();
     if (timeout > 0) {
       setTimeout(async () => {
-        const remember = localStorage.getItem("rememberCredentials");
-        if (remember) {
-          const { email, password } = JSON.parse(remember);
-          try {
-            const response = await Api.post("/Auth/login", { email, password });
-            if (response.statusCode === 200 && response.data?.token) {
-              setAuth({ ...response.data, rememberMe: true });
-              return;
+        const refreshed = await refreshTokenIfNeeded();
+        if (!refreshed) {
+          const remember = localStorage.getItem("rememberCredentials");
+          if (remember) {
+            const { email, password } = JSON.parse(remember);
+            try {
+              const response = await Api.post("/Auth/login", { email, password });
+              if (response.statusCode === 200 && response.data?.token) {
+                setAuth({ ...response.data, rememberMe: true });
+                return;
+              }
+            } catch (err) {
+              console.warn("Retry login failed", err);
             }
-          } catch (err) {
-            console.warn("Retry login failed", err);
           }
+          clearAuth();
         }
-        clearAuth();
       }, timeout);
     } else {
       clearAuth();

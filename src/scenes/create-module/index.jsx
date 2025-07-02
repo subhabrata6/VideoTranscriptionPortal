@@ -157,7 +157,7 @@ const CreateModule = () => {
   };
 
   return (
-    <Box p={4}>
+    <Box p={1}>
       <Header
         title={isEditMode ? "EDIT MODULE" : "CREATE MODULE"}
         subtitle={isEditMode ? "Update existing module" : "Create a new module"}

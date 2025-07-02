@@ -1,20 +1,21 @@
-// src/Layout/component/UserInfoPanel.jsx
-import { useState } from "react";
+import { useState, useContext } from "react";
 import {
   Box,
-  Typography,
-  Button,
+  IconButton,
   Menu,
   MenuItem,
-  IconButton,
-  Paper,
+  Typography,
 } from "@mui/material";
 import { AccountCircle } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-// import { AuthContext } from "../../data/Helpers/AuthContext";
+import Api from "../../data/Services/Interceptor";
+import { ToastContainer } from "react-toastify";
+import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
+import { AuthContext } from "../../data/Helpers/AuthContext";
+import * as messageHelper from "../../data/Helpers/MessageHelper";
 
 const UserInfoPanel = () => {
-  //const { auth } = useContext(AuthContext);
+  const { auth } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [anchorEl, setAnchorEl] = useState(null);
@@ -29,21 +30,38 @@ const UserInfoPanel = () => {
     navigate("/login");
   };
 
-  const handleChangePassword = () => {
+
+  const handleChangePassword = async () => {
     handleClose();
-    navigate("/reset-password");
+    const email = auth?.claims?.userEmail;
+
+    if (!email) {
+      messageHelper.showErrorToast("Email not found in user claims.");
+      return;
+    }
+
+    try {
+      const response = await Api.post(ApiEndpoints.AUTH + "/forgot-password", { email });
+      if (response.statusCode === 200 && response.success) {
+        messageHelper.showSuccessToast(response.message || "Reset link sent to your email.");
+      } else {
+        messageHelper.showErrorToast(response.message || "Failed to trigger password reset.");
+      }
+    } catch (error) {
+      messageHelper.showErrorToast("Error: " + error.message);
+    }
   };
 
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      <Box sx={{ textAlign: "right" }}>
-        {/* <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+      {/* <Box sx={{ textAlign: "right" }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
           {auth?.claims?.name || "User"}
         </Typography>
         <Typography variant="body2" sx={{ fontSize: "0.8rem", color: "#ccc" }}>
           {auth?.role || "User"}
-        </Typography> */}
-      </Box>
+        </Typography>
+      </Box> */}
 
       <IconButton
         color="inherit"
@@ -67,6 +85,7 @@ const UserInfoPanel = () => {
         <MenuItem onClick={handleChangePassword}>Change Password</MenuItem>
         <MenuItem onClick={handleLogout}>Logout</MenuItem>
       </Menu>
+      <ToastContainer />
     </Box>
   );
 };

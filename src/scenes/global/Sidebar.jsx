@@ -54,9 +54,15 @@ const Sidebar = () => {
   const { auth } = useContext(AuthContext);
 
   const userRole = auth?.role
-    ? auth.role
-        .replace(/([a-z])([A-Z])/g, "$1 $2") // Split camelCase/PascalCase
-        .toUpperCase()
+    ? (() => {
+        let role = auth.role;
+        if (role.includes("_")) {
+          role = role.split("_").pop();
+        }
+        return role
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .toUpperCase();
+      })()
     : "";
 
   const isSuperAdmin = auth?.role === "SuperAdmin";

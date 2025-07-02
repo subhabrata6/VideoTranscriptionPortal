@@ -69,7 +69,7 @@ const RolePermissionsManager = () => {
       setActionMap(actMap);
 
       // 2. Module-Actions Mapping
-      const moduleActions = moduleActionsRes.data?.items || [];
+      const moduleActions = moduleActionsRes.data || [];
       const lookup = {}; // moduleId -> [actionName]
 
       moduleActions.forEach(({ moduleId, actionId }) => {
@@ -99,20 +99,16 @@ const RolePermissionsManager = () => {
       setRoles(
         roleItems.map((r) => ({
           id: r.id,
-          name: r.displayName || r.name,
+          name: r.name,
         }))
       );
 
-      console.log("Final modules:", enrichedModules);
-console.log("Action map:", actMap);
-console.log("Lookup (moduleId -> actions):", lookup);
     } catch (err) {
       messageHelper.showErrorToast("Failed to load roles/modules/actions.");
       console.error(err);
     } finally {
       setLoadingData(false);
     }
-
   };
 
   useEffect(() => {
@@ -137,20 +133,24 @@ console.log("Lookup (moduleId -> actions):", lookup);
         setSelectedRoleName(role?.name || "");
 
         const res = await Api.get(
-          `${ApiEndpoints.ROLE_PERMISSIONS}/role/${selectedRoleId}`
+          `${ApiEndpoints.ROLE_PERMISSIONS}/get-role-wise-permissions/role/${selectedRoleId}`
         );
-        const perms = res.data?.data || {};
+        const perms = res?.data || {};
         const normalized = {};
+        console.log("Fetched permissions:", perms);
 
         modules.forEach(({ id, name, actions }) => {
           const modulePerm = perms.modules?.find((m) => m.moduleId === id);
-          const enabled = (modulePerm?.actionIds || []).map(
-            (id) => actionMap[id]
-          );
+          const enabledActionIds = modulePerm?.actionIds || [];
           normalized[name] = {};
-          actions.forEach((a) => (normalized[name][a] = enabled.includes(a)));
+          actions.forEach((actionName) => {
+            const actionId = Object.entries(actionMap).find(
+              ([id, name]) => name === actionName
+            )?.[0];
+            normalized[name][actionName] = enabledActionIds.includes(actionId);
+          });
         });
-
+        console.log("Resolved permissions:", normalized);
         setSavedPermissions(normalized);
         setCurrentPermissions(normalized);
       } catch (err) {
@@ -164,73 +164,100 @@ console.log("Lookup (moduleId -> actions):", lookup);
     fetchPermissions();
   }, [selectedRoleId, modules, actionMap]);
 
-  const handleSave = async () => {
-    if (!selectedRoleId) return;
+const handleSave = async () => {
+  if (!selectedRoleId) {
+    messageHelper.showErrorToast("No role selected");
+    return;
+  }
 
-    try {
-      const payload = {
-        roleId: selectedRoleId,
-        modules: modules
-          .map(({ id, name }) => {
-            const enabledActions = Object.entries(
-              currentPermissions[name] || {}
-            )
-              .filter(([, val]) => val)
-              .map(
-                ([actionName]) =>
-                  Object.entries(actionMap).find(
-                    ([, aName]) => aName === actionName
-                  )?.[0]
-              )
-              .filter(Boolean);
-            return { moduleId: id, actionIds: enabledActions };
-          })
-          .filter((m) => m.actionIds.length > 0),
-      };
-
-      await Api.post(ApiEndpoints.ROLE_PERMISSIONS, payload);
-      setSavedPermissions(currentPermissions);
-      setSnackbarOpen(true);
-      messageHelper.showSuccessToast("Permissions saved successfully");
-    } catch (err) {
-      messageHelper.showErrorToast("Failed to save permissions");
-      console.error(err);
-    }
+  const payload = {
+    roleId: selectedRoleId,
+    modules: [],
   };
 
-  const togglePermission = (moduleName, action) => {
+  modules.forEach((module) => {
+    const modulePerms = currentPermissions[module.name];
+    if (!modulePerms) return;
+
+    const selectedActionIds = Object.entries(modulePerms)
+      .filter(([, isEnabled]) => isEnabled)
+      .map(([actionName]) => {
+        // Find the actionId from actionMap by actionName
+        const actionId = Object.entries(actionMap).find(
+          ([, name]) => name === actionName
+        )?.[0];
+        return actionId;
+      })
+      .filter(Boolean); // Remove undefined/null
+
+    if (selectedActionIds.length > 0) {
+      payload.modules.push({
+        moduleId: module.id,
+        actionIds: selectedActionIds,
+      });
+    }
+  });
+
+  try {
+    const resp = await Api.post(ApiEndpoints.ROLE_PERMISSIONS + "/save-role-wise-permissions", payload);
+    if (resp.statusCode === 201 || resp.success) {
+      messageHelper.showSuccessToast("Permissions updated successfully");
+      setSavedPermissions(currentPermissions);
+      setSnackbarOpen(true);
+    }
+  } catch (err) {
+    messageHelper.showErrorToast("Failed to update permissions");
+  }
+};
+
+
+
+  const togglePermission = (moduleName, action, isChecked ) => {
     setCurrentPermissions((prev) => ({
       ...prev,
       [moduleName]: {
         ...prev[moduleName],
-        [action]: !prev[moduleName]?.[action],
+        [action]: isChecked,
       },
     }));
   };
 
-  const toggleSelectAll = (action) => {
-    const allSelected = modules.every(
-      ({ name }) => currentPermissions[name]?.[action]
-    );
-    const updated = {};
+ const toggleSelectAll = (action) => {
+  const eligibleModules = modules.filter((mod) => mod.actions.includes(action));
 
-    modules.forEach(({ name, actions }) => {
-      if (actions.includes(action)) {
-        updated[name] = {
-          ...currentPermissions[name],
-          [action]: !allSelected,
-        };
-      }
-    });
+  const isAllChecked = eligibleModules.every(
+    (mod) => currentPermissions[mod.name]?.[action]
+  );
 
-    setCurrentPermissions((prev) => ({ ...prev, ...updated }));
-  };
+  const updatedPermissions = { ...currentPermissions };
+
+  eligibleModules.forEach(({ name }) => {
+    if (!updatedPermissions[name]) {
+      updatedPermissions[name] = {};
+    }
+    updatedPermissions[name][action] = !isAllChecked;
+  });
+
+  setCurrentPermissions(updatedPermissions);
+};
+
+const allCheckedForAction = (action) => {
+  const eligibleModules = modules.filter((mod) => mod.actions.includes(action));
+  if (eligibleModules.length === 0) return false;
+
+  return eligibleModules.every(
+    (mod) => currentPermissions[mod.name]?.[action]
+  );
+};
+
+
 
   const isAllSelected = (action) =>
-    modules.every(({ name, actions }) =>
-      actions.includes(action) ? currentPermissions[name]?.[action] : true
-    );
+    modules
+      .filter(({ actions }) => actions.includes(action))
+      .every(({ name }) => currentPermissions[name]?.[action]);
 
+  // Fix: Ensure filteredRoles is always up-to-date and not empty on role select
   const filteredRoles = useMemo(() => {
     return searchTerm.trim()
       ? roles.filter((r) =>
@@ -239,10 +266,51 @@ console.log("Lookup (moduleId -> actions):", lookup);
       : roles;
   }, [searchTerm, roles]);
 
+  // Fix: Ensure currentPermissions is always rebuilt when selectedRoleId or modules change
+  useEffect(() => {
+    if (!selectedRoleId || modules.length === 0) return;
+
+    const fetchPermissions = async () => {
+      setLoadingPermissions(true);
+      try {
+        const role = roles.find((r) => r.id === selectedRoleId);
+        setSelectedRoleName(role?.name || "");
+
+        const res = await Api.get(
+          `${ApiEndpoints.ROLE_PERMISSIONS}/get-role-wise-permissions/role/${selectedRoleId}`
+        );
+        const perms = res?.data || {};
+        const normalized = {};
+
+        modules.forEach(({ id, name, actions }) => {
+          const modulePerm = perms.modules?.find((m) => m.moduleId === id);
+          const enabledActionIds = modulePerm?.actionIds || [];
+          normalized[name] = {};
+          actions.forEach((actionName) => {
+            const actionId = Object.entries(actionMap).find(
+              ([id, n]) => n === actionName
+            )?.[0];
+            normalized[name][actionName] = enabledActionIds.includes(actionId);
+          });
+        });
+
+        setSavedPermissions(normalized);
+        setCurrentPermissions(normalized);
+      } catch (err) {
+        messageHelper.showErrorToast("Failed to load permissions");
+        console.error(err);
+      } finally {
+        setLoadingPermissions(false);
+      }
+    };
+
+    fetchPermissions();
+    // eslint-disable-next-line
+  }, [selectedRoleId, modules, actionMap]);
+
   return (
     <Box
       sx={{
-        padding: 2,
         backgroundColor:
           tokens(theme.palette?.mode || "light")?.background?.default || "#fff",
       }}
@@ -256,7 +324,6 @@ console.log("Lookup (moduleId -> actions):", lookup);
           display="flex"
           flexDirection={isSmallScreen ? "column" : "row"}
           gap={2}
-          p={2}
         >
           {/* Role Selector */}
           <Paper
@@ -306,14 +373,20 @@ console.log("Lookup (moduleId -> actions):", lookup);
                         <GroupIcon />
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText primary={name} />
+                    <ListItemText primary={name.includes("_")
+                        ? name.split("_").map((part, idx) => (
+                          <span key={idx}>
+                          {part}
+                          {idx !== name.split("_").length - 1 && <br />}
+                          </span>
+                        ))
+                        : name } />
                   </ListItemButton>
                 ))
               )}
             </List>
           </Paper>
 
-          {/* Permissions Table */}
           <Paper sx={{ flex: 1, p: 3 }} elevation={3}>
             <Typography variant="h6" gutterBottom>
               Permissions for:{" "}
@@ -353,18 +426,45 @@ console.log("Lookup (moduleId -> actions):", lookup);
                   >
                     <thead>
                       <tr>
-                        <th style={{ textAlign: "left", padding: 8 }}>
+                        <th
+                          style={{
+                            textAlign: "center",
+                            padding: 8,
+                            border: "2px solid rgb(27, 59, 163)",
+                            background: "rgb(2 35 157)",
+                            fontWeight: "bold",
+                            fontSize: "1.1rem",
+                            color: "rgb(255 255 255)",
+                          }}
+                        >
                           Module
                         </th>
                         {(modules[0]?.actions || []).map((action) => (
-                          <th key={action} style={{ textAlign: "center" }}>
+                          <th
+                            key={action}
+                            style={{
+                              textAlign: "center",
+                              padding: 8,
+                              border: "2px solid rgb(27, 59, 163)",
+                              background: "rgb(2 35 157)",
+                              fontWeight: "bold",
+                              fontSize: "1.1rem",
+                              color: "rgb(255 255 255)",
+                            }}
+                          >
                             <FormControlLabel
                               control={
                                 <Checkbox
                                   size="small"
-                                  checked={isAllSelected(action)}
+                                  checked={allCheckedForAction(action)}
                                   onChange={() => toggleSelectAll(action)}
                                   disabled={!selectedRoleId}
+                                  sx={{
+                                    color: "#1caee9",
+                                    '&.Mui-checked': {
+                                      color: "#1caee9",
+                                    },
+                                  }}
                                 />
                               }
                               label={action}
@@ -386,8 +486,14 @@ console.log("Lookup (moduleId -> actions):", lookup);
                                 checked={
                                   currentPermissions[name]?.[action] || false
                                 }
-                                onChange={() => togglePermission(name, action)}
+                                onChange={(e) => togglePermission(name, action, e.target.checked)}
                                 disabled={!selectedRoleId}
+                                sx={{
+                                  color: "#1caee9",
+                                  '&.Mui-checked': {
+                                    color: "#1caee9",
+                                  },
+                                }}
                               />
                             </td>
                           ))}
@@ -397,7 +503,7 @@ console.log("Lookup (moduleId -> actions):", lookup);
                   </Box>
                 )}
 
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Stack direction="row" justifyContent="flex-end">
                   <Button
                     variant="outlined"
                     color="warning"

@@ -21,6 +21,11 @@ export const MessageToastContainer = () => {
       draggable
       pauseOnHover
       theme="light"
+      toastStyle={{
+        minWidth: '500px',
+        minHeight: '100px',
+        fontSize: '1.2rem',
+      }}
     />
   );
 };

@@ -1,48 +1,70 @@
-// src/pages/LoginForm.js
-import React, { useState, useContext } from "react";
+import React, { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Box, Paper, TextField, Button, Typography, Checkbox,
   FormControlLabel, InputAdornment, IconButton, Grid
 } from "@mui/material";
 import { Visibility, VisibilityOff, Person, Lock } from "@mui/icons-material";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 import { AuthContext } from "../../data/Helpers/AuthContext";
 import Api from "../../data/Services/Interceptor";
+
+const sqlInjectionPattern = /('|--|;|\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|EXEC|UNION|OR|AND)\b)/i;
+
+const validationSchema = Yup.object().shape({
+  email: Yup.string()
+    .required("Username is required")
+    .test("sql-injection", "Invalid input detected", value => !sqlInjectionPattern.test(value || "")),
+  password: Yup.string()
+    .required("Password is required")
+    .test("sql-injection", "Invalid input detected", value => !sqlInjectionPattern.test(value || "")),
+  rememberMe: Yup.boolean()
+});
 
 export default function LoginForm() {
   const navigate = useNavigate();
   const { setAuth } = useContext(AuthContext);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await Api.post("/Auth/login", { email, password });
+  const formik = useFormik({
+    initialValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      setError("");
+      try {
+        const response = await Api.post("/Auth/login", {
+          email: values.email,
+          password: values.password,
+        });
 
-      if (response.statusCode === 200 && response.data?.token) {
-        const { token, refreshToken, expires } = response.data;
+        if (response.statusCode === 200 && response.data?.token) {
+          const { token, refreshToken, expires } = response.data;
 
-        // Store credentials for retry login only if rememberMe is true
-        if (rememberMe) {
-          localStorage.setItem("rememberCredentials", JSON.stringify({ email, password }));
+          if (values.rememberMe) {
+            localStorage.setItem("rememberCredentials", JSON.stringify({
+              email: values.email,
+              password: values.password
+            }));
+          } else {
+            localStorage.removeItem("rememberCredentials");
+          }
+
+          setAuth({ token, refreshToken, expires, rememberMe: values.rememberMe });
+          navigate("/dashboard");
         } else {
-          localStorage.removeItem("rememberCredentials");
+          setError(response.message || "Login failed");
         }
-
-        setAuth({ token, refreshToken, expires, rememberMe });
-        navigate("/dashboard");
-      } else {
-        setError(response.message || "Login failed");
+      } catch (err) {
+        setError("Login failed");
       }
-    } catch (err) {
-      setError("Login failed");
-    }
-  };
+    },
+  });
 
   return (
     <Grid container sx={{ height: "100vh" }}>
@@ -55,7 +77,7 @@ export default function LoginForm() {
       >
         <Paper elevation={12}
           sx={{
-            p: 4, width: 360, borderRadius: 3,
+            p: 4, width: 380, borderRadius: 3,
             backdropFilter: "blur(10px)",
             background: "rgba(255, 255, 255, 0.1)",
             border: "1px solid rgba(255, 255, 255, 0.2)",
@@ -70,23 +92,31 @@ export default function LoginForm() {
             <Typography variant="h5" fontWeight="bold">Sign in</Typography>
           </Box>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={formik.handleSubmit}>
             <TextField
               fullWidth
               variant="outlined"
-              margin="normal"
+              name="email"
               placeholder="Username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              margin="normal"
+              value={formik.values.email}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.email && Boolean(formik.errors.email)}
+              helperText={formik.touched.email && formik.errors.email}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Person sx={{ color: "#fff" }} />
                   </InputAdornment>
                 ),
+                sx: {
+                  fontSize: "1rem",
+                  py: 1.2
+                }
               }}
               sx={{
-                input: { color: "#fff" },
+                input: { color: "#fff", fontSize: "1rem", py: 1.2 },
                 fieldset: { borderColor: "#fff" },
                 "& .MuiOutlinedInput-root:hover fieldset": {
                   borderColor: "#90caf9",
@@ -98,10 +128,14 @@ export default function LoginForm() {
               fullWidth
               variant="outlined"
               type={showPassword ? "text" : "password"}
-              margin="normal"
+              name="password"
               placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              margin="normal"
+              value={formik.values.password}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.password && Boolean(formik.errors.password)}
+              helperText={formik.touched.password && formik.errors.password}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -119,10 +153,14 @@ export default function LoginForm() {
                     </IconButton>
                   </InputAdornment>
                 ),
+                sx: {
+                  fontSize: "1rem",
+                  py: 1.2
+                }
               }}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit(e)}
+              onKeyDown={(e) => e.key === "Enter" && formik.handleSubmit()}
               sx={{
-                input: { color: "#fff" },
+                input: { color: "#fff", fontSize: "1rem", py: 1.2 },
                 fieldset: { borderColor: "#fff" },
                 "& .MuiOutlinedInput-root:hover fieldset": {
                   borderColor: "#90caf9",
@@ -133,8 +171,9 @@ export default function LoginForm() {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  name="rememberMe"
+                  checked={formik.values.rememberMe}
+                  onChange={formik.handleChange}
                   sx={{ color: "#fff" }}
                 />
               }
@@ -148,6 +187,8 @@ export default function LoginForm() {
               type="submit"
               sx={{
                 mt: 2,
+                py: 1.3,
+                fontSize: "1rem",
                 borderColor: "#fff",
                 backgroundColor: "rgb(88, 192, 233)",
                 color: "#fff",

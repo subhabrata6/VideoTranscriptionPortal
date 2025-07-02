@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React from "react";
 import {
   Box,
   Paper,
@@ -7,99 +6,53 @@ import {
   TextField,
   Button,
   Stack,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
 } from "@mui/material";
-import { CheckCircle, Cancel } from "@mui/icons-material";
-import { toast, ToastContainer } from "react-toastify";
+import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
+import { ToastContainer } from "react-toastify";
+import * as messageHelper from "../../data/Helpers/MessageHelper";
 import "react-toastify/dist/ReactToastify.css";
 import Api from "../../data/Services/Interceptor";
+import { useNavigate } from "react-router-dom";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 
-const ResetPassword = () => {
+const validationSchema = Yup.object().shape({
+  email: Yup.string()
+    .email("Invalid email address")
+    .required("Email is required"),
+});
+
+const ForgotPassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [errors, setErrors] = useState({});
-
-  const minLengthValid = newPassword.length >= 8 && newPassword.length <= 12;
-  const uppercaseValid = /[A-Z]/.test(newPassword);
-  const specialCharValid = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-  const noSpaceValid = !/\s/.test(newPassword);
-  const passwordsMatch = newPassword === confirmPassword;
-
-  const showValidation = newPassword.length >= 3;
-
-  const passwordRules = [
-    {
-      label: "8–12 characters long",
-      valid: minLengthValid,
-    },
-    {
-      label: "At least 1 uppercase letter",
-      valid: uppercaseValid,
-    },
-    {
-      label: "At least 1 special character",
-      valid: specialCharValid,
-    },
-    {
-      label: "No spaces",
-      valid: noSpaceValid,
-    },
-    {
-      label: "Passwords must match",
-      valid: passwordsMatch && confirmPassword.length > 0,
-    },
-  ];
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const trimmedPassword = newPassword.trim();
-    const trimmedConfirm = confirmPassword.trim();
-
-    const validationErrors = {};
-    if (!minLengthValid) {
-      validationErrors.newPassword = "Password must be 8–12 characters long.";
-    } else if (!uppercaseValid) {
-      validationErrors.newPassword = "Include at least one uppercase letter.";
-    } else if (!specialCharValid) {
-      validationErrors.newPassword = "Include at least one special character.";
-    } else if (!noSpaceValid) {
-      validationErrors.newPassword = "No spaces allowed.";
-    }
-
-    if (trimmedPassword !== trimmedConfirm) {
-      validationErrors.confirmPassword = "Passwords do not match.";
-    }
-
-    setErrors(validationErrors);
-
-    if (Object.keys(validationErrors).length === 0) {
+  const formik = useFormik({
+    initialValues: { email: "" },
+    validationSchema,
+    onSubmit: async (values, { setSubmitting }) => {
       try {
-        await Api.post("/Auth/reset-password", {
-          token,
-          newPassword: trimmedPassword,
-        });
-        toast.success("Password reset successfully!", {
-          autoClose: 3000,
-          onClose: () => navigate("/login"),
-        });
-      } catch (error) {
-        toast.error("Failed to reset password. Please try again.");
+        const response = await Api.post(
+          ApiEndpoints.AUTH + "/forgot-password",
+          { email: values.email.trim() }
+        );
+        if (response.statusCode === 200 && response.success) {
+          messageHelper.showSuccessToast(response.message);
+          setTimeout(() => navigate("/login"), 3000);
+        } else {
+          messageHelper.showErrorToast(response.message);
+        }
+      } catch (err) {
+        messageHelper.showErrorToast("Error: " + err.message, { autoClose: false });
+      } finally {
+        setSubmitting(false);
       }
-    }
-  };
+    },
+  });
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        background: "linear-gradient(to right, #1e3c72, #2a5298)",
+        backgroundColor: "#0439d3",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -107,110 +60,124 @@ const ResetPassword = () => {
       }}
     >
       <Paper
-        elevation={10}
+        elevation={0}
         sx={{
-          p: { xs: 3, sm: 5 },
-          width: { xs: "100%", sm: 480 },
-          borderRadius: 3,
-          backgroundColor: "#1a05c5",
+          p: { xs: 4, sm: 6 },
+          width: { xs: "100%", sm: 600 },
+          minHeight: 400,
+          borderRadius: 0,
+          backgroundColor: "transparent",
+          boxShadow: "none",
         }}
       >
         <Typography
-          variant="h5"
-          fontWeight={700}
+          variant="h3"
+          fontWeight={800}
+          mb={4}
           textAlign="center"
-          color="#ffffff"
-          mb={2}
+          sx={{ fontSize: { xs: 24, sm: 40 }, letterSpacing: 1 }}
         >
-          Reset Your Password
+          Find Your Account
         </Typography>
 
-        {showValidation && (
-          <Box
+        <Typography
+          variant="h6"
+          mb={6}
+          color="white"
+          sx={{
+            fontSize: { xs: 14, sm: 18 },
+            textAlign: "center",
+            letterSpacing: 0.5,
+            lineHeight: 1.6,
+          }}
+        >
+          Please enter your email address to search for your account. We will send you a reset link to your registered email address.
+        </Typography>
+
+        <form onSubmit={formik.handleSubmit} noValidate>
+          <TextField
+            fullWidth
+            label="Email Address"
+            type="email"
+            name="email"
+            value={formik.values.email}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.email && Boolean(formik.errors.email)}
+            helperText={formik.touched.email && formik.errors.email}
             sx={{
-              backgroundColor: "#f1f6fe",
-              border: "1px solid #1a05c5",
-              borderRadius: 2,
-              p: 2,
-              mb: 3,
+              mb: 4,
+              "& .MuiInputBase-input": { fontSize: 18, py: 2 },
+              "& .MuiInputLabel-root": { fontSize: 16 },
             }}
+            InputProps={{
+              style: { height: 56 },
+            }}
+          />
+
+          <Stack
+            direction="row"
+            spacing={2}
+            justifyContent="center"
+            sx={{ mt: 2 }}
           >
-            <Typography variant="subtitle2" color="primary" fontWeight={600}>
-              Password reset criteria:
-            </Typography>
-            <List dense>
-              {passwordRules.map((rule, idx) => (
-                <ListItem key={idx} sx={{ py: 0.5 }}>
-                  <ListItemIcon sx={{ minWidth: 30 }}>
-                    {rule.valid ? (
-                      <CheckCircle sx={{ color: "green" }} />
-                    ) : (
-                      <Cancel sx={{ color: "red" }} />
-                    )}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={rule.label}
-                    primaryTypographyProps={{
-                      fontSize: "0.9rem",
-                      color: rule.valid ? "green" : "red",
-                    }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-        )}
-
-        <form onSubmit={handleSubmit} noValidate>
-          <TextField
-            fullWidth
-            label="New Password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            error={!!errors.newPassword}
-            helperText={errors.newPassword}
-            sx={{ mb: 3 }}
-          />
-
-          <TextField
-            fullWidth
-            label="Confirm Password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            error={!!errors.confirmPassword}
-            helperText={errors.confirmPassword}
-            sx={{ mb: 3 }}
-          />
-
-          <Stack direction="row" spacing={2} justifyContent="flex-end">
             <Button
               variant="outlined"
               color="secondary"
               onClick={() => navigate("/login")}
+              sx={{
+                fontSize: 16,
+                px: 4,
+                py: 1,
+                borderWidth: 2,
+              }}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               variant="contained"
+              disabled={formik.isSubmitting}
               sx={{
                 backgroundColor: "#1e3c72",
                 color: "#fff",
+                fontSize: 16,
+                px: 5,
+                py: 1.2,
+                borderRadius: 2,
                 "&:hover": {
                   backgroundColor: "#16315e",
                 },
               }}
             >
-              Reset Password
+              Search
             </Button>
           </Stack>
         </form>
+
+        <Box mt={6} textAlign="center">
+          <Typography
+            variant="body1"
+            color="white"
+            sx={{ fontSize: 16, mb: 1 }}
+          >
+            Need more help?
+          </Typography>
+          <Typography
+            variant="body2"
+            color="white"
+            sx={{ fontSize: 14 }}
+          >
+            Contact our support team at{" "}
+            <a href="mailto:support@example.com" style={{ color: "#37beff" }}>
+              support@example.com
+            </a>
+          </Typography>
+        </Box>
       </Paper>
       <ToastContainer />
     </Box>
   );
 };
 
-export default ResetPassword;
+export default ForgotPassword;

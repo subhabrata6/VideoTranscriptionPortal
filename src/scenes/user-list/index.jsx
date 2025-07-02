@@ -16,6 +16,7 @@ import { DataGrid } from "@mui/x-data-grid";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
+import SendIcon from '@mui/icons-material/Send';
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SupervisedUserCircleOutlinedIcon from "@mui/icons-material/SupervisedUserCircleOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
@@ -64,6 +65,14 @@ const UserList = () => {
         }));
         setUsers(usersWithAccess);
         setTotalCount(response.data.totalCount);
+      }
+      else if (response.statusCode === 403) {
+        messageHelper.showWarningToast(
+          response.message,
+          { autoClose: false }
+        );
+        setUsers([]);
+        setTotalCount(0);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -163,6 +172,26 @@ const UserList = () => {
       }
     );
   };
+  const handleReinvite = async (id) => {
+    messageHelper.showConfirmationToast(
+      "Are you sure you want to send a new invite?",
+      {
+        onConfirm: async () => {
+          try {
+            const response = await Api.post(ApiEndpoints.USERS + `/${id}/ResendInvite`);
+            if (response.statusCode === 200) {
+              messageHelper.showSuccessToast("Invite sent successfully.");
+            } else {
+              messageHelper.showErrorToast("Failed to send invite: " + response.message);
+            }
+          } catch (error) {
+            console.error("Error sending invite:", error);
+            messageHelper.showErrorToast("Failed to send invite: " + error.message);
+          }
+        },
+      }
+    );
+  };
 
   const columns = [
     { field: "id", headerName: "ID", flex: 0.5, hide: true },
@@ -243,14 +272,14 @@ const UserList = () => {
       sortable: false,
       filterable: false,
       renderCell: ({ row }) => (
-        <Box display="flex" gap={1}>
+        <Box display="flex" gap={0.5} justifyContent="center">
           <Tooltip title="Edit">
             <IconButton
               color="warning"
               size="small"
               onClick={() => handleEdit(row.id)}
             >
-              <EditIcon fontSize="large" />
+              <EditIcon fontSize="medium" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Inactive">
@@ -259,7 +288,16 @@ const UserList = () => {
               size="small"
               onClick={() => handleDelete(row.id)}
             >
-              <CancelIcon fontSize="large" />
+              <CancelIcon fontSize="medium" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Send Invite">
+            <IconButton
+              color="info"
+              size="small"
+              onClick={() => handleReinvite(row.id)}
+            >
+              <SendIcon fontSize="medium" />
             </IconButton>
           </Tooltip>
         </Box>

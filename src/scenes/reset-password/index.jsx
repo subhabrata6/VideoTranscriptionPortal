@@ -1,88 +1,108 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import Api from "../../data/Services/Interceptor";
+import React, { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
+  Paper,
   Typography,
   TextField,
   Button,
-  Paper,
-  Grid,
+  Stack,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from "@mui/material";
+import { CheckCircle, Cancel } from "@mui/icons-material";
+import Api from "../../data/Services/Interceptor";
+import { ToastContainer } from "react-toastify";
+import * as messageHelper from "../../data/Helpers/MessageHelper";
+import { ApiEndpoints } from "../../data/Helpers/ApiEndPoints";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("payload");
 
-  const [formData, setFormData] = useState({
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [errors, setErrors] = useState({});
 
-  const [token, setToken] = useState("");
+  const minLengthValid = newPassword.length >= 8 && newPassword.length <= 12;
+  const uppercaseValid = /[A-Z]/.test(newPassword);
+  const specialCharValid = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+  const noSpaceValid = !/\s/.test(newPassword);
+  const passwordsMatch = newPassword === confirmPassword;
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const paramsToken = params.get("payload");
-    if (paramsToken) {
-      setToken(paramsToken);
-    }
-  }, [location]);
+  const showValidation = newPassword.length >= 3;
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  const passwordRules = [
+    {
+      label: "8–12 characters long",
+      valid: minLengthValid,
+    },
+    {
+      label: "At least 1 uppercase letter",
+      valid: uppercaseValid,
+    },
+    {
+      label: "At least 1 special character",
+      valid: specialCharValid,
+    },
+    {
+      label: "No spaces",
+      valid: noSpaceValid,
+    },
+    {
+      label: "Passwords must match",
+      valid: passwordsMatch && confirmPassword.length > 0,
+    },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { newPassword, confirmPassword } = formData;
+    const trimmedPassword = newPassword.trim();
+    const trimmedConfirm = confirmPassword.trim();
 
-    if (!newPassword || !confirmPassword) {
-      toast.error("Please fill in both fields.");
-      return;
+    const validationErrors = {};
+    if (!minLengthValid) {
+      validationErrors.newPassword = "Password must be 8–12 characters long.";
+    } else if (!uppercaseValid) {
+      validationErrors.newPassword = "Include at least one uppercase letter.";
+    } else if (!specialCharValid) {
+      validationErrors.newPassword = "Include at least one special character.";
+    } else if (!noSpaceValid) {
+      validationErrors.newPassword = "No spaces allowed.";
     }
 
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match.");
-      return;
+    if (trimmedPassword !== trimmedConfirm) {
+      validationErrors.confirmPassword = "Passwords do not match.";
     }
 
-    try {
-      const response = await Api.post("/Auth/reset-password", {
-        newPassword,
-        payload: token,
-      });
+    setErrors(validationErrors);
 
-      if (response.status !== 200) {
-        toast.error("Password reset failed.");
-        return;
+    if (Object.keys(validationErrors).length === 0) {
+      try {
+        const response = await Api.post(ApiEndpoints.AUTH + "/reset-password", {
+          payload:token,
+          newPassword: trimmedPassword,
+        });
+        if (response.statusCode === 200 && response.success) {
+          messageHelper.showSuccessToast(response.message);
+          setTimeout(() => navigate("/login"), 3000);
+        } else {
+          messageHelper.showErrorToast(response.message);
+        }
+      } catch (error) {
+        messageHelper.showErrorToast(error.message, { autoClose: false });
       }
-
-      toast.success("Password reset successful. You can now log in.", {
-        onClose: () => navigate("/login"),
-        autoClose: 3000,
-      });
-    } catch (error) {
-      console.error("Reset failed:", error);
-      toast.error("Something went wrong. Please try again.");
     }
-  };
-
-  const handleCancel = () => {
-    navigate("/login");
   };
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        background: "linear-gradient(to right,rgb(88, 168, 248),rgb(5, 53, 107))",
+        background: "linear-gradient(to right, #1e3c72, #2a5298)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -92,54 +112,103 @@ const ResetPassword = () => {
       <Paper
         elevation={10}
         sx={{
-          p: 6,
-          width: 500,
-          maxWidth: "100%",
-          borderRadius: 4,
-          backgroundColor: "#0c35fd",
-          boxShadow: "0 6px 24px rgba(0,0,0,0.1)",
+          p: { xs: 3, sm: 5 },
+          width: { xs: "100%", sm: 480 },
+          borderRadius: 3,
+          backgroundColor: "#1a05c5",
         }}
       >
-        <Typography variant="h4" gutterBottom align="center" fontWeight="bold">
-          Reset Password
-        </Typography>
-        <Typography variant="body1" align="center" mb={3}>
-          Enter your new password to regain access to your account.
+        <Typography
+          variant="h5"
+          fontWeight={700}
+          textAlign="center"
+          color="#ffffff"
+          mb={2}
+        >
+          Reset Your Password
         </Typography>
 
-        <form onSubmit={handleSubmit}>
+        {showValidation && (
+          <Box
+            sx={{
+              backgroundColor: "#f1f6fe",
+              border: "1px solid #1a05c5",
+              borderRadius: 2,
+              p: 2,
+              mb: 3,
+            }}
+          >
+            <Typography variant="subtitle2" color="primary" fontWeight={600}>
+              Password reset criteria:
+            </Typography>
+            <List dense>
+              {passwordRules.map((rule, idx) => (
+                <ListItem key={idx} sx={{ py: 0.5 }}>
+                  <ListItemIcon sx={{ minWidth: 30 }}>
+                    {rule.valid ? (
+                      <CheckCircle sx={{ color: "green" }} />
+                    ) : (
+                      <Cancel sx={{ color: "red" }} />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={rule.label}
+                    primaryTypographyProps={{
+                      fontSize: "0.9rem",
+                      color: rule.valid ? "green" : "red",
+                    }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+
+        <form onSubmit={handleSubmit} noValidate>
           <TextField
+            fullWidth
             label="New Password"
-            name="newPassword"
             type="password"
-            fullWidth
-            margin="normal"
-            value={formData.newPassword}
-            onChange={handleChange}
-            required
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            error={!!errors.newPassword}
+            helperText={errors.newPassword}
+            sx={{ mb: 3 }}
           />
+
           <TextField
-            label="Confirm Password"
-            name="confirmPassword"
-            type="password"
             fullWidth
-            margin="normal"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
+            label="Confirm Password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={!!errors.confirmPassword}
+            helperText={errors.confirmPassword}
+            sx={{ mb: 3 }}
           />
-          <Grid container spacing={2} justifyContent="flex-end" mt={2}>
-            <Grid item>
-              <Button onClick={handleCancel} variant="outlined" color="secondary">
-                Cancel
-              </Button>
-            </Grid>
-            <Grid item>
-              <Button type="submit" variant="contained" color="primary">
-                Submit
-              </Button>
-            </Grid>
-          </Grid>
+
+          <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => navigate("/login")}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                backgroundColor: "#1e3c72",
+                color: "#fff",
+                "&:hover": {
+                  backgroundColor: "#16315e",
+                },
+              }}
+            >
+              Reset Password
+            </Button>
+          </Stack>
         </form>
       </Paper>
       <ToastContainer />
